@@ -25,20 +25,25 @@ def predict():
     image_file.save(temp_path)
 
     try:
-        # 1) Read image (BGR) & convert to grayscale
+
         img_bgr = cv2.imread(temp_path)
         if img_bgr is None:
             raise ValueError("Could not read image. Is it valid?")
 
         img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
 
+
+
         thr_value = 200
         _, thresh = cv2.threshold(img_gray, thr_value, 255, cv2.THRESH_BINARY)
+
 
         kernel = np.ones((3,3), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
 
+
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
 
         detection_img = img_bgr.copy()
         all_xmin, all_xmax = [], []
@@ -46,12 +51,15 @@ def predict():
 
         for cnt in contours:
             x, y, w, h = cv2.boundingRect(cnt)
+            # Draw bounding box in red
             cv2.rectangle(detection_img, (x, y), (x+w, y+h), (0,0,255), 2)
+            # Track min/max for "Fault Part"
             all_xmin.append(x)
             all_xmax.append(x+w)
             all_ymin.append(y)
             all_ymax.append(y+h)
 
+        # 6) Create "Fault Part" image
         if len(contours) > 0:
             x_min = min(all_xmin)
             x_max = max(all_xmax)
@@ -59,17 +67,22 @@ def predict():
             y_max = max(all_ymax)
             fault_part_img = detection_img[y_min:y_max, x_min:x_max]
         else:
-            # No faults => small black image
+
             fault_part_img = np.zeros((50, 50, 3), dtype=np.uint8)
+
 
         total_pixels = img_gray.shape[0] * img_gray.shape[1]
         hot_pixels = np.sum(thresh == 255)
         confidence = (hot_pixels / total_pixels) * 100.0
 
+
         if confidence < 5:
             prediction = "No Fault (Normal)"
         else:
             prediction = "Hotspot Detected"
+
+
+
         input_encoded = encode_image(img_bgr)
         detection_encoded = encode_image(detection_img)
         fault_encoded = encode_image(fault_part_img)

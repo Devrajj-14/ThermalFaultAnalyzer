@@ -102,22 +102,22 @@
         alert("Please select an image first!");
         return;
       }
-      output.innerText = "⏳ Predicting...";
+      output.innerText = "Predicting...";
       const formData = new FormData();
       formData.append("image", fileInput.files[0]);
       try {
         const res = await fetch("/predict", { method: "POST", body: formData });
         const data = await res.json();
         if (data.error) {
-          output.innerText = "❌ " + data.error;
+          output.innerText =   data.error;
           return;
         }
-        output.innerText = `✅ ${data.prediction} (Confidence: ${data.confidence}%)`;
+        output.innerText = `${data.prediction} (Confidence: ${data.confidence}%)`;
         document.getElementById("inputImg").src = "data:image/png;base64," + data.input_image;
         document.getElementById("faultImg").src = "data:image/png;base64," + data.fault_detection;
         document.getElementById("partImg").src = "data:image/png;base64," + data.fault_part;
       } catch (err) {
-        output.innerText = "❌ Error: " + err.message;
+        output.innerText = " Error: " + err.message;
       }
     }
   </script>

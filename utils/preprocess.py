@@ -26,7 +26,23 @@ def create_graph_from_image(image):
     return Data(x=x, edge_index=edge_index)
 
 def load_graph_data(image_path):
-    """Load an image and create a graph representation."""
-    image = preprocess_image(image_path)
-    graph_data = create_graph_from_image(image)
-    return graph_data
+    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img = cv2.resize(img, (64, 64))
+    nodes = img.flatten().astype(np.float32) / 255.0
+    x = torch.tensor(nodes, dtype=torch.float32).unsqueeze(1)  # shape [4096, 1]
+
+    # Dummy example for edge_index (you should replace this with your graph logic)
+    edge_index = []
+    for i in range(4096 - 1):
+        edge_index.append([i, i + 1])
+        edge_index.append([i + 1, i])
+    edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()  # shape [2, num_edges]
+
+    # Add node positions for visualization
+    pos = []
+    for i in range(64):
+        for j in range(64):
+            pos.append([j, i])
+    pos = torch.tensor(pos, dtype=torch.float)
+
+    return Data(x=x, edge_index=edge_index, pos=pos)

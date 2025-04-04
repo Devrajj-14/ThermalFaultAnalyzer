@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Thermal Fault Detector</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #f4f7f9;
+      margin: 0;
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+    .upload-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .upload-section input[type="file"] {
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .upload-section button {
+      background: #007bff;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .upload-section button:hover {
+      background: #0056b3;
+    }
+    #output {
+      text-align: center;
+      font-size: 18px;
+      margin-top: 10px;
+      color: #333;
+    }
+    .image-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 30px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      width: 300px;
+      text-align: center;
+      overflow: hidden;
+    }
+    .card h4 {
+      background: #007bff;
+      color: #fff;
+      margin: 0;
+      padding: 10px;
+      font-size: 18px;
+    }
+    .card img {
+      width: 100%;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h2>Thermal Fault Detector</h2>
+  <div class="upload-section">
+    <input type="file" id="fileInput" accept="image/*" />
+    <button onclick="predict()">Predict</button>
+    <p id="output"></p>
+  </div>
+  <div class="image-grid">
+    <div class="card">
+      <h4>Input Image</h4>
+      <img id="inputImg" src="" alt="Input Image">
+    </div>
+    <div class="card">
+      <h4>Fault Detection</h4>
+      <img id="faultImg" src="" alt="Fault Detection">
+    </div>
+    <div class="card">
+      <h4>Fault Part</h4>
+      <img id="partImg" src="" alt="Fault Part">
+    </div>
+  </div>
+  <script>
+    async function predict() {
+      const fileInput = document.getElementById("fileInput");
+      const output = document.getElementById("output");
+      if (!fileInput.files.length) {
+        alert("Please select an image first!");
+        return;
+      }
+      output.innerText = "⏳ Predicting...";
+      const formData = new FormData();
+      formData.append("image", fileInput.files[0]);
+      try {
+        const res = await fetch("/predict", { method: "POST", body: formData });
+        const data = await res.json();
+        if (data.error) {
+          output.innerText = "❌ " + data.error;
+          return;
+        }
+        output.innerText = `✅ ${data.prediction} (Confidence: ${data.confidence}%)`;
+        document.getElementById("inputImg").src = "data:image/png;base64," + data.input_image;
+        document.getElementById("faultImg").src = "data:image/png;base64," + data.fault_detection;
+        document.getElementById("partImg").src = "data:image/png;base64," + data.fault_part;
+      } catch (err) {
+        output.innerText = "❌ Error: " + err.message;
+      }
+    }
+  </script>
+</body>
+</html>

@@ -2,45 +2,52 @@ import torch
 import torch.nn.functional as F
 from utils.preprocess import load_graph_data
 from models.convgnn_model import SolarPanelConvGNN
+from collections import Counter
 
 # ✅ Load trained model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = SolarPanelConvGNN(in_channels=1, hidden_channels=16, out_channels=2).to(device)
+model = SolarPanelConvGNN(in_channels=1, hidden_channels=16, out_channels=4).to(device)
 
 # ✅ Load model weights
+model_path = "models/solar_panel_gnn.pth"
 try:
-    model.load_state_dict(torch.load("models/solar_panel_gnn.pth", map_location=device))
-    model.eval()  # Set to evaluation mode
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.eval()
     print("✅ Model loaded successfully!")
-except FileNotFoundError:
-    print("❌ Error: Model file 'models/solar_panel_gnn.pth' not found.")
+except Exception as e:
+    print(f"❌ Error loading model: {e}")
     exit()
 
-# ✅ Load new test image (Replace with actual image)
-test_image_path = "data/thermal_images/test_panel.jpg"
+# ✅ Load test image (replace with your actual image)
+test_image_path = "data/Unknown.png"
 
 try:
     graph_data = load_graph_data(test_image_path).to(device)
     print(f"✅ Test image '{test_image_path}' successfully processed into graph.")
-except FileNotFoundError:
-    print(f"❌ Error: Test image '{test_image_path}' not found.")
+except Exception as e:
+    print(f"❌ Error processing image: {e}")
     exit()
 
 # ✅ Perform Prediction
 with torch.no_grad():
     output = model(graph_data.x, graph_data.edge_index)
-    probabilities = F.softmax(output, dim=1)  # Convert logits to probabilities
-    predicted_label = torch.argmax(probabilities, dim=1).cpu().numpy()
+    probabilities = F.softmax(output, dim=1)
+    predicted_labels = torch.argmax(probabilities, dim=1).cpu().numpy()
+    majority_vote = Counter(predicted_labels).most_common(1)[0][0]
+    confidence_score = probabilities[:, majority_vote].mean().item() * 100
 
-# ✅ Print Results
+# ✅ Define Labels
+fault_types = {
+    0: "No Fault (Normal)",
+    1: "Panel Fault (Defective)",
+    2: "Hotspot Detected",
+    3: "Cracked Panel"
+}
+predicted_fault = fault_types.get(majority_vote, "Unknown Fault Type")
+
+# ✅ Print Output
 print("\n🔍 **Prediction Results**:")
 print(f"📌 Test Image: {test_image_path}")
-print(f"🔹 Raw Model Output: {output.cpu().numpy()}")
-print(f"🔹 Predicted Label: {predicted_label}")
-print(f"🔹 Probabilities: {probabilities.cpu().numpy()}")
-
-# ✅ Map Labels to Fault Types (Customize as needed)
-fault_types = {0: "No Fault (Normal)", 1: "Panel Fault (Defective)"}
-predicted_fault = fault_types.get(predicted_label[0], "Unknown")
-
-print(f"🚀 Final Prediction: {predicted_fault}")
+print(f"🔹 Majority Predicted Label: {majority_vote}")
+print(f"🔹 Fault Type: {predicted_fault}")
+print(f"🔹 Confidence Score: {confidence_score:.2f}%")

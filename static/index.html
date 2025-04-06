@@ -71,6 +71,17 @@
       width: 100%;
       display: block;
     }
+    .fault-parts-container {
+      padding: 10px;
+    }
+    .fault-part-item {
+      border: 3px dashed #007bff;
+      margin: 10px 0;
+      padding: 5px;
+    }
+    .fault-part-item img {
+      width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -80,44 +91,83 @@
     <button onclick="predict()">Predict</button>
     <p id="output"></p>
   </div>
+  
   <div class="image-grid">
+    <!-- Card 1: Input Image -->
     <div class="card">
       <h4>Input Image</h4>
       <img id="inputImg" src="" alt="Input Image">
     </div>
+    
+    <!-- Card 2: Fault Detection (main overlay image) -->
     <div class="card">
       <h4>Fault Detection</h4>
       <img id="faultImg" src="" alt="Fault Detection">
     </div>
+    
+    <!-- Card 3: Individual Fault Parts -->
     <div class="card">
-      <h4>Fault Part</h4>
-      <img id="partImg" src="" alt="Fault Part">
+      <h4>Fault Parts</h4>
+      <div id="faultPartsContainer" class="fault-parts-container">
+        <!-- Each fault part will be appended here dynamically -->
+      </div>
     </div>
   </div>
+  
   <script>
     async function predict() {
       const fileInput = document.getElementById("fileInput");
       const output = document.getElementById("output");
+      const faultPartsContainer = document.getElementById("faultPartsContainer");
+
+      // Clear old results
+      output.innerText = "";
+      document.getElementById("inputImg").src = "";
+      document.getElementById("faultImg").src = "";
+      faultPartsContainer.innerHTML = "";
+
       if (!fileInput.files.length) {
         alert("Please select an image first!");
         return;
       }
-      output.innerText = "Predicting...";
+
+      output.innerText = "⏳ Predicting...";
+
       const formData = new FormData();
       formData.append("image", fileInput.files[0]);
+
       try {
         const res = await fetch("/predict", { method: "POST", body: formData });
         const data = await res.json();
+
         if (data.error) {
-          output.innerText =   data.error;
+          output.innerText = "❌ " + data.error;
           return;
         }
-        output.innerText = `${data.prediction} (Confidence: ${data.confidence}%)`;
+
+        // Show the prediction result
+        output.innerText = `✅ ${data.prediction} (Confidence: ${data.confidence}%)`;
+
+        // Update images
         document.getElementById("inputImg").src = "data:image/png;base64," + data.input_image;
         document.getElementById("faultImg").src = "data:image/png;base64," + data.fault_detection;
-        document.getElementById("partImg").src = "data:image/png;base64," + data.fault_part;
+        
+        // Display each fault part in a separate dashed box
+        if (data.fault_parts && Array.isArray(data.fault_parts)) {
+          data.fault_parts.forEach((base64Str, index) => {
+            const faultDiv = document.createElement("div");
+            faultDiv.classList.add("fault-part-item");
+
+            const faultImg = document.createElement("img");
+            faultImg.src = "data:image/png;base64," + base64Str;
+            faultImg.alt = `Fault Part ${index + 1}`;
+
+            faultDiv.appendChild(faultImg);
+            faultPartsContainer.appendChild(faultDiv);
+          });
+        }
       } catch (err) {
-        output.innerText = " Error: " + err.message;
+        output.innerText = "❌ Error: " + err.message;
       }
     }
   </script>

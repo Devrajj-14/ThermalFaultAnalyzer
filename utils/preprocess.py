@@ -1,48 +1,66 @@
 import cv2
-import numpy as np
-import networkx as nx
-import torch
-from torch_geometric.data import Data
+import base64
+import os
 
-def preprocess_image(image_path):
-    """Convert image to grayscale and normalize pixel values."""
-    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    image = cv2.resize(image, (64, 64))  # Resize for consistency
-    image = image / 255.0  # Normalize pixel values
-    return image
+def detect_faults(image_path):
+    """
+    Given an image path, detect multiple hotspots/faulty areas.
+    Returns a dictionary with:
+        - 'prediction'
+        - 'confidence'
+        - 'input_image' (base64-encoded original image)
+        - 'fault_detection' (base64-encoded image with bounding boxes)
+        - 'fault_parts' (list of base64-encoded cropped images)
+    """
+    # (1) Read the original image (as BGR by default in OpenCV)
+    original_img = cv2.imread(image_path)
 
-def create_graph_from_image(image):
-    """Convert an image to a graph representation."""
-    height, width = image.shape
-    G = nx.grid_2d_graph(height, width)  # Create a grid graph
+    # (2) Define bounding boxes (x, y, width, height).
+    #     In real usage, these come from your detection model.
+    bboxes = [
+        (50, 50, 100, 100),
+        (200, 80, 100, 100),
+        (350, 120, 80, 80),
+        (500, 60, 80, 100)
+    ]
 
-    # ✅ Convert edges into a 2D tensor correctly
-    edge_index = torch.tensor(np.array(G.edges).T, dtype=torch.long)
+    # (3) Create a copy for drawing bounding boxes
+    detection_img = original_img.copy()
+    for (x, y, w, h) in bboxes:
+        cv2.rectangle(detection_img, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
-    # ✅ Ensure node features are formatted correctly
-    node_features = image.flatten().reshape(-1, 1)
-    x = torch.tensor(node_features, dtype=torch.float)
+    # (4) Save the detection image (optional) so we can encode it
+    fault_detection_path = image_path + "_fault.png"
+    cv2.imwrite(fault_detection_path, detection_img)
 
-    return Data(x=x, edge_index=edge_index)
+    # (5) Crop each bounding box to create separate images
+    fault_parts_base64 = []
+    for (x, y, w, h) in bboxes:
+        # Crop the region of interest
+        crop = original_img[y:y+h, x:x+w]
+        fault_parts_base64.append(encode_cv2_to_base64(crop))
 
-def load_graph_data(image_path):
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    img = cv2.resize(img, (64, 64))
-    nodes = img.flatten().astype(np.float32) / 255.0
-    x = torch.tensor(nodes, dtype=torch.float32).unsqueeze(1)  # shape [4096, 1]
+    # (6) Build the result dictionary
+    result = {
+        "prediction": "No Fault (Normal)",  # or "Hotspot Detected"
+        "confidence": 1.92,                # example confidence
+        "input_image": encode_file_to_base64(image_path),
+        "fault_detection": encode_file_to_base64(fault_detection_path),
+        "fault_parts": fault_parts_base64
+    }
 
-    # Dummy example for edge_index (you should replace this with your graph logic)
-    edge_index = []
-    for i in range(4096 - 1):
-        edge_index.append([i, i + 1])
-        edge_index.append([i + 1, i])
-    edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()  # shape [2, num_edges]
+    return result
 
-    # Add node positions for visualization
-    pos = []
-    for i in range(64):
-        for j in range(64):
-            pos.append([j, i])
-    pos = torch.tensor(pos, dtype=torch.float)
+def encode_file_to_base64(file_path):
+    """Reads a file from disk and returns its Base64-encoded string."""
+    if not os.path.exists(file_path):
+        return ""
+    with open(file_path, "rb") as f:
+        return base64.b64encode(f.read()).decode('utf-8')
 
-    return Data(x=x, edge_index=edge_index, pos=pos)
+def encode_cv2_to_base64(cv2_image):
+    """Encodes an OpenCV image (NumPy array) to Base64 (PNG format)."""
+    success, buffer = cv2.imencode('.png', cv2_image)
+    if not success:
+        return ""
+    return base64.b64encode(buffer).decode('utf-8')

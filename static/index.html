@@ -2,31 +2,40 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Thermal Fault Detector</title>
+  <title>Solar Farm Monitoring Dashboard</title>
   <style>
+    /* Basic page styling */
     body {
-      font-family: 'Arial', sans-serif;
+      font-family: Arial, sans-serif;
       background: #f4f7f9;
       margin: 0;
       padding: 20px;
     }
-    h2 {
+    h2, h3 {
       text-align: center;
       color: #333;
     }
-    .upload-section {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 20px;
+    .section {
+      margin-bottom: 40px;
     }
-    .upload-section input[type="file"] {
-      margin: 10px 0;
+    /* Container styles for upload & calculation sections */
+    .upload-section, .calc-section {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .upload-section input, .calc-section input {
+      width: 100%;
       padding: 10px;
+      margin: 10px 0;
       border: 1px solid #ccc;
       border-radius: 4px;
     }
-    .upload-section button {
+    .upload-section button, .calc-section button {
       background: #007bff;
       color: #fff;
       border: none;
@@ -35,93 +44,114 @@
       border-radius: 4px;
       cursor: pointer;
     }
-    .upload-section button:hover {
+    .upload-section button:hover, .calc-section button:hover {
       background: #0056b3;
     }
-    #output {
-      text-align: center;
-      font-size: 18px;
-      margin-top: 10px;
-      color: #333;
-    }
+    /* Image display grid */
     .image-grid {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       gap: 20px;
-      margin-top: 30px;
+      margin-top: 20px;
     }
     .card {
       background: #fff;
       border: 1px solid #ddd;
       border-radius: 8px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      width: 300px;
-      text-align: center;
-      overflow: hidden;
-    }
-    .card h4 {
-      background: #007bff;
-      color: #fff;
-      margin: 0;
       padding: 10px;
-      font-size: 18px;
+      text-align: center;
+      width: 300px;
     }
     .card img {
       width: 100%;
-      display: block;
     }
-    .fault-parts-container {
-      padding: 10px;
-    }
-    .fault-part-item {
-      border: 3px dashed #007bff;
-      margin: 10px 0;
-      padding: 5px;
-    }
-    .fault-part-item img {
+    /* Table styling for output metrics */
+    table {
       width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th, td {
+      padding: 8px;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <h2>Thermal Fault Detector</h2>
-  <div class="upload-section">
-    <input type="file" id="fileInput" accept="image/*" />
-    <button onclick="predict()">Predict</button>
-    <p id="output"></p>
-  </div>
+  <h2>Solar Farm Monitoring Dashboard</h2>
   
-  <div class="image-grid">
-    <!-- Card 1: Input Image -->
-    <div class="card">
-      <h4>Input Image</h4>
-      <img id="inputImg" src="" alt="Input Image">
-    </div>
-    
-    <!-- Card 2: Fault Detection (main overlay image) -->
-    <div class="card">
-      <h4>Fault Detection</h4>
-      <img id="faultImg" src="" alt="Fault Detection">
-    </div>
-    
-    <!-- Card 3: Individual Fault Parts -->
-    <div class="card">
-      <h4>Fault Parts</h4>
-      <div id="faultPartsContainer" class="fault-parts-container">
-        <!-- Each fault part will be appended here dynamically -->
+  <!-- Section 1: Image Upload & Fault Detection -->
+  <div class="section upload-section">
+    <h3>Upload Thermal Image</h3>
+    <input type="file" id="fileInput" accept="image/*">
+    <button onclick="predict()">Predict Faults</button>
+    <p id="uploadOutput"></p>
+    <div class="image-grid">
+      <div class="card">
+        <h4>Input Image</h4>
+        <img id="inputImg" src="" alt="Input Image">
+      </div>
+      <div class="card">
+        <h4>Fault Detection</h4>
+        <img id="faultImg" src="" alt="Fault Detection">
+      </div>
+      <div class="card">
+        <h4>Fault Parts</h4>
+        <div id="faultPartsContainer"></div>
       </div>
     </div>
   </div>
   
+  <!-- Section 2: Calculation Inputs & Results -->
+  <div class="section calc-section">
+    <h3>System Performance Calculations</h3>
+    <label>Expected Output (kWh):</label>
+    <input type="number" id="expectedOutput" placeholder="e.g., 1684.88">
+    <label>Actual Output (kWh):</label>
+    <input type="number" id="actualOutput" placeholder="e.g., 1420">
+    
+    <label>Installed Power (kWp):</label>
+    <input type="number" id="installedPower" placeholder="e.g., 1000">
+    <label>Irradiance (kWh/m²/day):</label>
+    <input type="number" id="irradiance" placeholder="e.g., 5.5">
+    <label>Time (days):</label>
+    <input type="number" id="time" placeholder="e.g., 365">
+    
+    <label>Initial Output (kWh):</label>
+    <input type="number" id="initialOutput" placeholder="e.g., 1684.88">
+    <label>Current Output (kWh):</label>
+    <input type="number" id="currentOutput" placeholder="e.g., 1420">
+    <label>Years:</label>
+    <input type="number" id="years" placeholder="e.g., 5">
+    
+    <label>Actual Temperature (°C):</label>
+    <input type="number" id="actualTemp" placeholder="e.g., 40">
+    <label>STC Temperature (°C):</label>
+    <input type="number" id="stcTemp" placeholder="e.g., 25">
+    <label>Temperature Coefficient:</label>
+    <input type="number" id="tempCoeff" placeholder="e.g., -0.0045">
+    <label>Rated Power (kWp):</label>
+    <input type="number" id="ratedPower" placeholder="e.g., 1000">
+    
+    <button onclick="calculateMetrics()">Calculate Metrics</button>
+    
+    <div id="calcResults"></div>
+  </div>
+  
   <script>
+    // Function to process image upload and display fault detection results.
     async function predict() {
       const fileInput = document.getElementById("fileInput");
-      const output = document.getElementById("output");
+      const uploadOutput = document.getElementById("uploadOutput");
       const faultPartsContainer = document.getElementById("faultPartsContainer");
 
-      // Clear old results
-      output.innerText = "";
+      // Clear previous results
+      uploadOutput.innerText = "";
       document.getElementById("inputImg").src = "";
       document.getElementById("faultImg").src = "";
       faultPartsContainer.innerHTML = "";
@@ -131,44 +161,116 @@
         return;
       }
 
-      output.innerText = "⏳ Predicting...";
-
+      uploadOutput.innerText = "⏳ Processing...";
       const formData = new FormData();
       formData.append("image", fileInput.files[0]);
 
       try {
         const res = await fetch("/predict", { method: "POST", body: formData });
         const data = await res.json();
-
         if (data.error) {
-          output.innerText = "❌ " + data.error;
+          uploadOutput.innerText = "❌ " + data.error;
           return;
         }
-
-        // Show the prediction result
-        output.innerText = `✅ ${data.prediction} (Confidence: ${data.confidence}%)`;
-
-        // Update images
+        uploadOutput.innerText = `✅ ${data.prediction} (Confidence: ${data.confidence}%)`;
         document.getElementById("inputImg").src = "data:image/png;base64," + data.input_image;
         document.getElementById("faultImg").src = "data:image/png;base64," + data.fault_detection;
         
-        // Display each fault part in a separate dashed box
         if (data.fault_parts && Array.isArray(data.fault_parts)) {
           data.fault_parts.forEach((base64Str, index) => {
             const faultDiv = document.createElement("div");
-            faultDiv.classList.add("fault-part-item");
-
+            faultDiv.style.border = "3px dashed #007bff";
+            faultDiv.style.margin = "10px";
+            faultDiv.style.padding = "5px";
             const faultImg = document.createElement("img");
             faultImg.src = "data:image/png;base64," + base64Str;
             faultImg.alt = `Fault Part ${index + 1}`;
-
             faultDiv.appendChild(faultImg);
             faultPartsContainer.appendChild(faultDiv);
           });
         }
       } catch (err) {
-        output.innerText = "❌ Error: " + err.message;
+        uploadOutput.innerText = "❌ Error: " + err.message;
       }
+    }
+
+    // Function to calculate system performance metrics from user inputs.
+    function calculateMetrics() {
+      // Retrieve user inputs (parseFloat to convert input to number)
+      const expectedOutput = parseFloat(document.getElementById("expectedOutput").value) || 0;
+      const actualOutput = parseFloat(document.getElementById("actualOutput").value) || 0;
+      const installedPower = parseFloat(document.getElementById("installedPower").value) || 0;
+      const irradiance = parseFloat(document.getElementById("irradiance").value) || 0;
+      const time = parseFloat(document.getElementById("time").value) || 0;
+      const initialOutput = parseFloat(document.getElementById("initialOutput").value) || 0;
+      const currentOutput = parseFloat(document.getElementById("currentOutput").value) || 0;
+      const years = parseFloat(document.getElementById("years").value) || 1;
+      const actualTemp = parseFloat(document.getElementById("actualTemp").value) || 0;
+      const stcTemp = parseFloat(document.getElementById("stcTemp").value) || 25;
+      const tempCoeff = parseFloat(document.getElementById("tempCoeff").value) || -0.0045;
+      const ratedPower = parseFloat(document.getElementById("ratedPower").value) || 0;
+
+      // 1️⃣ Power Output Drop (%) calculation:
+      let powerDrop = (expectedOutput > 0) ? ((expectedOutput - actualOutput) / expectedOutput) * 100 : 0;
+      
+      // 2️⃣ Performance Ratio (PR) calculation:
+      let theoreticalMax = installedPower * irradiance * time;
+      let pr = (theoreticalMax > 0) ? (actualOutput / theoreticalMax) * 100 : 0;
+      
+      // 3️⃣ Annual Degradation Rate calculation:
+      let degradationRate = (expectedOutput > 0 && years > 0) ? ((expectedOutput - currentOutput) / (expectedOutput * years)) * 100 : 0;
+      
+      // 4️⃣ Temperature Loss Calculation:
+      let temperatureLoss = tempCoeff * (actualTemp - stcTemp) * ratedPower;
+      
+      // Determine inference statuses based on thresholds:
+      let powerDropStatus = (powerDrop > 10) ? "🔴" : "✅";
+      let prStatus = (pr < 75) ? "🔴" : "✅";
+      let degradationStatus = (degradationRate > 0.7) ? "🔴" : "✅";
+
+      // Build HTML output with a table of results
+      let resultsHtml = `
+        <h3>Calculation Results</h3>
+        <table>
+          <tr>
+            <th>Metric</th>
+            <th>Observed Value</th>
+            <th>Standard Threshold</th>
+            <th>Status</th>
+            <th>Inference</th>
+          </tr>
+          <tr>
+            <td>Power Output Drop</td>
+            <td>${powerDrop.toFixed(2)}%</td>
+            <td>&lt;10%</td>
+            <td>${powerDropStatus}</td>
+            <td>${(powerDrop > 10) ? "Power drop is significant. Modules should be closely inspected." : "Normal"}</td>
+          </tr>
+          <tr>
+            <td>Performance Ratio (PR)</td>
+            <td>${pr.toFixed(2)}%</td>
+            <td>&ge;75%</td>
+            <td>${prStatus}</td>
+            <td>${(pr < 75) ? "PR has dropped below 75%, a critical threshold, signaling substantial system inefficiencies." : "Normal"}</td>
+          </tr>
+          <tr>
+            <td>Annual Degradation Rate</td>
+            <td>${degradationRate.toFixed(2)}%/year</td>
+            <td>&lt;0.7%/year</td>
+            <td>${degradationStatus}</td>
+            <td>${(degradationRate > 0.7) ? "Degradation is high. Replacement or remediation is necessary." : "Normal"}</td>
+          </tr>
+          <tr>
+            <td>Temperature Loss</td>
+            <td>${temperatureLoss.toFixed(2)} kW</td>
+            <td>-</td>
+            <td>-</td>
+            <td>Loss due to temperature: ${temperatureLoss.toFixed(2)} kW.</td>
+          </tr>
+        </table>
+      `;
+      
+      document.getElementById("calcResults").innerHTML = resultsHtml;
     }
   </script>
 </body>

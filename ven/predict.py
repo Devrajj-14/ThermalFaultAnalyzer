@@ -7,7 +7,7 @@ from flask import Flask, request, jsonify
 app = Flask(__name__, static_folder="static")
 
 def encode_image(img):
-    """Encode a CV2 BGR image as a base64 string in PNG format."""
+    """Encode a CV2 BGR image as base64 string in PNG format."""
     if img is None:
         return ""
     success, buffer = cv2.imencode('.png', img)
@@ -29,97 +29,90 @@ def predict():
     image_file.save(temp_path)
 
     try:
-        # ----- Image Processing & Fault Detection -----
+        # Read the image
         img_bgr = cv2.imread(temp_path)
         if img_bgr is None:
             raise ValueError("Could not read image. Is it valid?")
 
         # Convert to grayscale
         img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        
-        # Apply threshold to detect hot regions
+
+        # Example threshold detection
         thr_value = 200
         _, thresh = cv2.threshold(img_gray, thr_value, 255, cv2.THRESH_BINARY)
-        
-        # Use morphological operations to reduce noise
         kernel = np.ones((3, 3), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
         
-        # Find contours representing fault areas
+        # Contours for bounding boxes
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
+
         detection_img = img_bgr.copy()
         fault_parts = []
-        fault_temperatures = []  # list for average intensity in each fault region
-        
         for cnt in contours:
             x, y, w, h = cv2.boundingRect(cnt)
-            # Draw a bounding box around each fault
             cv2.rectangle(detection_img, (x, y), (x + w, y + h), (0, 0, 255), 2)
-            # Crop the fault region
             crop_img = img_bgr[y:y+h, x:x+w]
             fault_parts.append(encode_image(crop_img))
-            # Compute the average intensity in the fault region for dynamic measurement.
-            local_gray = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
-            local_avg = np.mean(local_gray)
-            fault_temperatures.append(local_avg)
-        
-        # Compute confidence as ratio of hot pixels in the entire image.
+
+        # Confidence as ratio of hot pixels
         total_pixels = img_gray.shape[0] * img_gray.shape[1]
         hot_pixels = np.sum(thresh == 255)
         confidence = (hot_pixels / total_pixels) * 100.0
         
         prediction_text = "Hotspot Detected" if confidence >= 5 else "No Fault (Normal)"
-        
+
         # ---------------------------------------------------------------------------------
-        # Derive a dynamic "actual_temp" based on fault areas rather than the full image.
-        # If fault regions are found, take the maximum average intensity among them.
-        if fault_temperatures:
-            max_fault_intensity = max(fault_temperatures)
-        else:
-            # If no faults are detected, fallback to the entire image average.
-            max_fault_intensity = np.mean(img_gray)
-            
-        # Suppose 0 intensity => 0°C and 255 => 80°C (a simplified calibration)
+        # ❗ Here, we derive "actual_temp" from the grayscale image
+        #    For demonstration, compute average pixel intensity => approximate temperature
+        avg_intensity = float(np.mean(img_gray))  # e.g. 0 to 255
+        # Suppose 0 → 0°C, 255 → 80°C => 1 pixel intensity ~ 80/255 = ~0.3147°C
+        # This is purely hypothetical
         max_temp_range = 80.0
-        actual_temp = (max_fault_intensity / 255.0) * max_temp_range
-        
+        actual_temp = (avg_intensity / 255.0) * max_temp_range  # ~ range 0–80°C
         # ---------------------------------------------------------------------------------
-        # Now modify the performance metrics to depend on the derived temperature.
-        # For example, assume that the expected output decreases when temperature exceeds 25°C.
-        base_expected_output = 1684.88   # baseline expected output (kWh)
+
+        # Now define other metrics based on that derived temperature.
+        # Perhaps "expected_output" or "actual_output" is also derived or retrieved from a DB?
+        # We'll do a simple demonstration:
+
+        # Let's say the "expected_output" correlates inversely with temperature above 25°C:
+        # e.g. for each 1°C above 25°, we lose 5 kWh from the expected 1684.88 baseline.
+        base_expected_output = 1684.88
         if actual_temp > 25:
-            temp_diff = actual_temp - 25
-            dynamic_expected = base_expected_output - (temp_diff * 5)  # lose 5 kWh per degree above 25
+            temp_diff = (actual_temp - 25)
+            # lose 5kWh per deg above 25
+            dynamic_expected = base_expected_output - (temp_diff * 5)
         else:
             dynamic_expected = base_expected_output
 
-        # For demonstration, let the actual_output vary with confidence.
-        # (In a real implementation, these values would come from measurements or predictions.)
+        # We'll pretend "actual_output" is 1420 if the threshold is big enough, else 1500
         actual_output = 1420.0 if confidence >= 5 else 1500.0
-        
-        # ----- Dynamic Metrics Calculation -----
-        power_drop = ((dynamic_expected - actual_output) / dynamic_expected) * 100.0
 
-        # Performance Ratio (PR)
-        installed_power = 1000  # kWp
-        irradiance = 5.5        # kWh/m²/day
+        # Example metrics again
+        power_drop = ((dynamic_expected - actual_output) / dynamic_expected) * 100.0
+        # Performance ratio (fake formula, ignoring real irradiance/time inputs)
+        # We'll say installed power = 1000, irradiance=5.5, days=365 => same logic:
+        installed_power = 1000
+        irradiance = 5.5
         days = 365
-        theoretical_max = installed_power * irradiance * days
+        theoretical_max = installed_power * irradiance * days  # 2,007,500 kWh
         pr = (actual_output / theoretical_max) * 100.0
 
-        # Annual Degradation Rate over a 5-year period
+        # Suppose we define an "initial_output" as the dynamic_expected for the first year
+        # and "current_output" as the actual output. Over 5 years:
+        initial_output = dynamic_expected
+        current_output = actual_output
         years = 5
-        degradation_rate = ((dynamic_expected - actual_output) / (dynamic_expected * years)) * 100.0
+        degradation_rate = ((initial_output - current_output) / (initial_output * years)) * 100.0
 
-        # Temperature Loss Calculation using the derived temperature
-        stc_temp = 25          # Standard Test Condition temperature (°C)
-        rated_power = 1000     # kWp
+        # Temperature coefficient approach
+        # We'll keep stc_temp=25, rated_power=1000, coefficient=-0.0045
+        stc_temp = 25
+        rated_power = 1000
         temp_coeff = -0.0045
         temperature_loss = temp_coeff * (actual_temp - stc_temp) * rated_power
-        # ---------------------------------------------------------------------------------
 
-        # Build the analysis dictionary
+        # Build the final analysis dictionary
         analysis = {
             "power_output_drop": {
                 "observed_value": round(power_drop, 2),
@@ -144,23 +137,23 @@ def predict():
             },
             "temperature_loss": {
                 "observed_value": round(temperature_loss, 2),
-                "inference": f"Loss due to temperature: {round(temperature_loss, 2)} kW."
+                "inference": f"Loss due to temperature: {round(temperature_loss, 2)} kW"
             },
-            # For debugging or display purposes:
+            # Show derived actual_temp for debugging
             "derived_temperature": {
                 "value": round(actual_temp, 2),
                 "units": "°C"
             }
         }
 
-        # Encode the original and detection images
+        # Encode images
         input_encoded = encode_image(img_bgr)
         detection_encoded = encode_image(detection_img)
         
-        # Clean up temporary file
+        # Remove temporary file
         os.remove(temp_path)
 
-        # Return complete response with images, prediction, and dynamic analysis metrics
+        # Return JSON
         return jsonify({
             "prediction": prediction_text,
             "confidence": round(confidence, 2),

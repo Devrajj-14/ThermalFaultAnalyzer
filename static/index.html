@@ -18,8 +18,8 @@
     .section {
       margin-bottom: 40px;
     }
-    /* Container styles for upload & calculation sections */
-    .upload-section, .calc-section {
+    /* Container styles for upload section */
+    .upload-section {
       max-width: 600px;
       margin: 0 auto;
       background: #fff;
@@ -28,14 +28,14 @@
       border-radius: 8px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
-    .upload-section input, .calc-section input {
+    .upload-section input {
       width: 100%;
       padding: 10px;
       margin: 10px 0;
       border: 1px solid #ccc;
       border-radius: 4px;
     }
-    .upload-section button, .calc-section button {
+    .upload-section button {
       background: #007bff;
       color: #fff;
       border: none;
@@ -44,7 +44,7 @@
       border-radius: 4px;
       cursor: pointer;
     }
-    .upload-section button:hover, .calc-section button:hover {
+    .upload-section button:hover {
       background: #0056b3;
     }
     /* Image display grid */
@@ -67,7 +67,7 @@
     .card img {
       width: 100%;
     }
-    /* Table styling for output metrics */
+    /* Table styling for metrics output */
     table {
       width: 100%;
       border-collapse: collapse;
@@ -107,54 +107,25 @@
     </div>
   </div>
   
-  <!-- Section 2: Calculation Inputs & Results -->
-  <div class="section calc-section">
-    <h3>System Performance Calculations</h3>
-    <label>Expected Output (kWh):</label>
-    <input type="number" id="expectedOutput" placeholder="e.g., 1684.88">
-    <label>Actual Output (kWh):</label>
-    <input type="number" id="actualOutput" placeholder="e.g., 1420">
-    
-    <label>Installed Power (kWp):</label>
-    <input type="number" id="installedPower" placeholder="e.g., 1000">
-    <label>Irradiance (kWh/m²/day):</label>
-    <input type="number" id="irradiance" placeholder="e.g., 5.5">
-    <label>Time (days):</label>
-    <input type="number" id="time" placeholder="e.g., 365">
-    
-    <label>Initial Output (kWh):</label>
-    <input type="number" id="initialOutput" placeholder="e.g., 1684.88">
-    <label>Current Output (kWh):</label>
-    <input type="number" id="currentOutput" placeholder="e.g., 1420">
-    <label>Years:</label>
-    <input type="number" id="years" placeholder="e.g., 5">
-    
-    <label>Actual Temperature (°C):</label>
-    <input type="number" id="actualTemp" placeholder="e.g., 40">
-    <label>STC Temperature (°C):</label>
-    <input type="number" id="stcTemp" placeholder="e.g., 25">
-    <label>Temperature Coefficient:</label>
-    <input type="number" id="tempCoeff" placeholder="e.g., -0.0045">
-    <label>Rated Power (kWp):</label>
-    <input type="number" id="ratedPower" placeholder="e.g., 1000">
-    
-    <button onclick="calculateMetrics()">Calculate Metrics</button>
-    
+  <!-- Section 2: Auto Display Analysis Metrics -->
+  <div class="section">
+    <h3>Analysis Metrics</h3>
     <div id="calcResults"></div>
   </div>
   
   <script>
-    // Function to process image upload and display fault detection results.
     async function predict() {
       const fileInput = document.getElementById("fileInput");
       const uploadOutput = document.getElementById("uploadOutput");
       const faultPartsContainer = document.getElementById("faultPartsContainer");
+      const calcResults = document.getElementById("calcResults");
 
       // Clear previous results
       uploadOutput.innerText = "";
       document.getElementById("inputImg").src = "";
       document.getElementById("faultImg").src = "";
       faultPartsContainer.innerHTML = "";
+      calcResults.innerHTML = "";
 
       if (!fileInput.files.length) {
         alert("Please select an image first!");
@@ -176,6 +147,7 @@
         document.getElementById("inputImg").src = "data:image/png;base64," + data.input_image;
         document.getElementById("faultImg").src = "data:image/png;base64," + data.fault_detection;
         
+        // Display individual fault parts
         if (data.fault_parts && Array.isArray(data.fault_parts)) {
           data.fault_parts.forEach((base64Str, index) => {
             const faultDiv = document.createElement("div");
@@ -189,88 +161,54 @@
             faultPartsContainer.appendChild(faultDiv);
           });
         }
+
+        // Now automatically display analysis metrics from the prediction
+        if (data.analysis) {
+          const analysis = data.analysis;
+          let resultsHtml = `
+            <table>
+              <tr>
+                <th>Metric</th>
+                <th>Observed Value</th>
+                <th>Standard Threshold</th>
+                <th>Status</th>
+                <th>Inference</th>
+              </tr>
+              <tr>
+                <td>Power Output Drop</td>
+                <td>${analysis.power_output_drop.observed_value}%</td>
+                <td>${analysis.power_output_drop.standard_threshold}</td>
+                <td>${analysis.power_output_drop.status}</td>
+                <td>${analysis.power_output_drop.inference}</td>
+              </tr>
+              <tr>
+                <td>Performance Ratio (PR)</td>
+                <td>${analysis.performance_ratio.observed_value}%</td>
+                <td>${analysis.performance_ratio.standard_threshold}</td>
+                <td>${analysis.performance_ratio.status}</td>
+                <td>${analysis.performance_ratio.inference}</td>
+              </tr>
+              <tr>
+                <td>Annual Degradation Rate</td>
+                <td>${analysis.degradation_rate.observed_value}%/year</td>
+                <td>${analysis.degradation_rate.standard_threshold}</td>
+                <td>${analysis.degradation_rate.status}</td>
+                <td>${analysis.degradation_rate.inference}</td>
+              </tr>
+              <tr>
+                <td>Temperature Loss</td>
+                <td>${analysis.temperature_loss.observed_value} kW</td>
+                <td>-</td>
+                <td>-</td>
+                <td>${analysis.temperature_loss.inference}</td>
+              </tr>
+            </table>
+          `;
+          calcResults.innerHTML = resultsHtml;
+        }
       } catch (err) {
         uploadOutput.innerText = "❌ Error: " + err.message;
       }
-    }
-
-    // Function to calculate system performance metrics from user inputs.
-    function calculateMetrics() {
-      // Retrieve user inputs (parseFloat to convert input to number)
-      const expectedOutput = parseFloat(document.getElementById("expectedOutput").value) || 0;
-      const actualOutput = parseFloat(document.getElementById("actualOutput").value) || 0;
-      const installedPower = parseFloat(document.getElementById("installedPower").value) || 0;
-      const irradiance = parseFloat(document.getElementById("irradiance").value) || 0;
-      const time = parseFloat(document.getElementById("time").value) || 0;
-      const initialOutput = parseFloat(document.getElementById("initialOutput").value) || 0;
-      const currentOutput = parseFloat(document.getElementById("currentOutput").value) || 0;
-      const years = parseFloat(document.getElementById("years").value) || 1;
-      const actualTemp = parseFloat(document.getElementById("actualTemp").value) || 0;
-      const stcTemp = parseFloat(document.getElementById("stcTemp").value) || 25;
-      const tempCoeff = parseFloat(document.getElementById("tempCoeff").value) || -0.0045;
-      const ratedPower = parseFloat(document.getElementById("ratedPower").value) || 0;
-
-      // 1️⃣ Power Output Drop (%) calculation:
-      let powerDrop = (expectedOutput > 0) ? ((expectedOutput - actualOutput) / expectedOutput) * 100 : 0;
-      
-      // 2️⃣ Performance Ratio (PR) calculation:
-      let theoreticalMax = installedPower * irradiance * time;
-      let pr = (theoreticalMax > 0) ? (actualOutput / theoreticalMax) * 100 : 0;
-      
-      // 3️⃣ Annual Degradation Rate calculation:
-      let degradationRate = (expectedOutput > 0 && years > 0) ? ((expectedOutput - currentOutput) / (expectedOutput * years)) * 100 : 0;
-      
-      // 4️⃣ Temperature Loss Calculation:
-      let temperatureLoss = tempCoeff * (actualTemp - stcTemp) * ratedPower;
-      
-      // Determine inference statuses based on thresholds:
-      let powerDropStatus = (powerDrop > 10) ? "🔴" : "✅";
-      let prStatus = (pr < 75) ? "🔴" : "✅";
-      let degradationStatus = (degradationRate > 0.7) ? "🔴" : "✅";
-
-      // Build HTML output with a table of results
-      let resultsHtml = `
-        <h3>Calculation Results</h3>
-        <table>
-          <tr>
-            <th>Metric</th>
-            <th>Observed Value</th>
-            <th>Standard Threshold</th>
-            <th>Status</th>
-            <th>Inference</th>
-          </tr>
-          <tr>
-            <td>Power Output Drop</td>
-            <td>${powerDrop.toFixed(2)}%</td>
-            <td>&lt;10%</td>
-            <td>${powerDropStatus}</td>
-            <td>${(powerDrop > 10) ? "Power drop is significant. Modules should be closely inspected." : "Normal"}</td>
-          </tr>
-          <tr>
-            <td>Performance Ratio (PR)</td>
-            <td>${pr.toFixed(2)}%</td>
-            <td>&ge;75%</td>
-            <td>${prStatus}</td>
-            <td>${(pr < 75) ? "PR has dropped below 75%, a critical threshold, signaling substantial system inefficiencies." : "Normal"}</td>
-          </tr>
-          <tr>
-            <td>Annual Degradation Rate</td>
-            <td>${degradationRate.toFixed(2)}%/year</td>
-            <td>&lt;0.7%/year</td>
-            <td>${degradationStatus}</td>
-            <td>${(degradationRate > 0.7) ? "Degradation is high. Replacement or remediation is necessary." : "Normal"}</td>
-          </tr>
-          <tr>
-            <td>Temperature Loss</td>
-            <td>${temperatureLoss.toFixed(2)} kW</td>
-            <td>-</td>
-            <td>-</td>
-            <td>Loss due to temperature: ${temperatureLoss.toFixed(2)} kW.</td>
-          </tr>
-        </table>
-      `;
-      
-      document.getElementById("calcResults").innerHTML = resultsHtml;
     }
   </script>
 </body>

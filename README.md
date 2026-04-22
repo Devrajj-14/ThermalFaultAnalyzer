@@ -1,6 +1,8 @@
 # ThermalFaultAnalyzer
 
 Intelligent solar panel thermal fault detection and analysis system. Upload a thermal image and get multi-class fault classification, severity scoring, explainable AI heatmaps, AI-generated summaries, and recommended action timelines — all in a clean dark-theme dashboard.
+<img width="1280" height="800" alt="image" src="https://github.com/user-attachments/assets/e58f0d66-501e-4c13-b037-a54f70f0f74b" />
+
 
 ---
 

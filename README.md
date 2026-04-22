@@ -1,6 +1,88 @@
 # ThermalFaultAnalyzer
 
-An intelligent solar panel thermal fault analysis system. Upload a thermal image and get multi-class fault classification, severity scoring, explainable AI heatmaps, GenAI-generated summaries, and recommended action timelines.
+Intelligent solar panel thermal fault detection and analysis system. Upload a thermal image and get multi-class fault classification, severity scoring, explainable AI heatmaps, AI-generated summaries, and recommended action timelines — all in a clean dark-theme dashboard.
+
+---
+
+## Demo
+
+### Upload & Analyze
+![Upload UI](docs/screenshots/upload.png)
+
+Drop any thermal image into the dashboard and click **Analyze Thermal Image**. Results appear instantly below.
+
+---
+
+### Classification Summary
+![Classification Banner](docs/screenshots/classification.png)
+
+The top banner shows the five key outputs at a glance:
+
+| Field | Example |
+|---|---|
+| Fault Classification | Hotspot |
+| Panel Health | Degraded |
+| Severity | High |
+| Confidence | 92% |
+| Risk Score | 78.9 |
+
+---
+
+### Fault Detection & XAI Heatmap
+![Detection and XAI](docs/screenshots/detection_xai.png)
+
+Three side-by-side panels:
+- **Input Image** — original thermal image as uploaded
+- **Fault Detection** — bounding boxes drawn around ranked anomaly regions
+- **XAI Heatmap** — INFERNO colormap overlay showing thermal intensity distribution, with region labels and area percentages
+
+---
+
+### Why This Result
+![Explanation](docs/screenshots/explanation.png)
+
+Concise evidence bullets grounded in computed values — no invented explanations:
+- Anomaly area coverage
+- Number of distinct regions
+- Thermal contrast score
+- Recommended action
+
+Paired with a **Recommended Timeline** card showing action deadline and risk outlook.
+
+---
+
+### AI-Generated Analysis
+![AI Analysis](docs/screenshots/ai_analysis.png)
+
+Three sections powered by Gemini (falls back to deterministic templates if API unavailable):
+- **Summary** — plain-language overview for operators
+- **Maintenance Recommendation** — specific next steps
+- **Technical Summary** — one-line engineer-facing digest
+
+---
+
+### Technical Metrics Table
+![Metrics](docs/screenshots/metrics.png)
+
+| Metric | Est. Value | Threshold | Status |
+|---|---|---|---|
+| Power Impact (est.) | 17.79% | <10% | 🔴 |
+| Performance Ratio | 69% | ≥75% | 🔴 |
+| Annual Degradation | 3.56%/yr | <0.7%/year | 🔴 |
+| Thermal Power Loss (est.) | 54.4 W | — | ⚠️ |
+| Thermal Level | Elevated | — | — |
+
+All values are estimates derived from image analysis, not calibrated sensor readings.
+
+---
+
+### Detected Fault Regions
+![Regions](docs/screenshots/regions.png)
+
+Each detected region is shown as a ranked row with:
+- Square-padded 128×128 thumbnail
+- Area %, importance score, contrast score
+- Bounding box coordinates and dimensions
 
 ---
 
@@ -9,13 +91,14 @@ An intelligent solar panel thermal fault analysis system. Upload a thermal image
 - **Multi-class classification** — normal, hotspot, severe_thermal_anomaly
 - **Severity scoring** — low, medium, high
 - **Panel health status** — healthy, watchlist, degraded, critical
-- **XAI heatmap** — visual overlay highlighting detected fault regions with region labels
-- **Grounded explanations** — every explanation point is derived from actual computed features
-- **GenAI summaries** — Gemini-powered user summary, maintenance advice, and technical summary (falls back to templates if API unavailable)
-- **Timeline recommendations** — action and risk timelines based on fault type and severity
-- **Performance metrics** — power drop, performance ratio, degradation rate, temperature loss
-- **Dual inference mode** — model-based (when trained model available) or rule-based fallback
-- **Backward compatible** — legacy API fields preserved
+- **Color-aware detection** — works on JET/thermal colormap images using red-channel dominance scoring, not grayscale
+- **Multi-factor region ranking** — area, peak thermal score, contrast, compactness, border penalty
+- **XAI heatmap** — INFERNO overlay with ranked bounding boxes, region labels, and legend
+- **Grounded explanations** — every point derived from actual computed features
+- **GenAI summaries** — Gemini-powered with deterministic template fallback
+- **Timeline recommendations** — proportional to fault type and severity
+- **Consistent metrics** — single source of truth; all cards read from the same computed object
+- **Dual inference mode** — model-based (when trained model present) or rule-based fallback
 
 ---
 
@@ -23,18 +106,17 @@ An intelligent solar panel thermal fault analysis system. Upload a thermal image
 
 ```
 ThermalFaultAnalyzer/
-├── app_v2.py                  # Flask entry point (production refactor)
-├── app.py                     # Original app (preserved)
+├── app_v2.py                  # Flask entry point
 ├── config/
 │   └── settings.py            # All constants, thresholds, env vars
 ├── services/
 │   ├── inference_service.py   # Orchestrates model vs rule-based inference
-│   ├── rule_based_service.py  # Deterministic thermal feature extraction + classification
-│   ├── xai_service.py         # XAI heatmap generation + explanation points
+│   ├── rule_based_service.py  # Color-aware thermal feature extraction + classification
+│   ├── xai_service.py         # XAI heatmap + explanation points
 │   ├── timeline_service.py    # Action/risk timeline recommendations
-│   └── genai_service.py       # Gemini GenAI summaries with template fallback
+│   └── genai_service.py       # Gemini summaries with template fallback
 ├── utils/
-│   ├── image_utils.py         # Image encoding, cropping
+│   ├── image_utils.py         # Image encoding, square-padded region crops
 │   ├── validation.py          # Upload validation, filename sanitization
 │   └── response_formatter.py  # Standardised JSON response builder
 ├── static/
@@ -43,34 +125,65 @@ ThermalFaultAnalyzer/
 │   ├── convgnn_model.py       # GNN model architecture
 │   └── train.py               # Training script
 ├── tests/
-│   ├── test_timeline_service.py
-│   ├── test_rule_based_service.py
-│   ├── test_response_formatter.py
-│   ├── test_genai_service.py
-│   └── test_app_routes.py
+│   └── ...                    # pytest test suite
 ├── data/
-│   └── thermal_images/        # C (clean), H (hotspot), S (severe) images
+│   └── thermal_images/        # Dataset (C/H/S labelled images)
 ├── .env.example
 └── requirements.txt
 ```
 
 ---
 
-## Setup
+## How to Start
+
+### 1. Clone the repo
 
 ```bash
 git clone https://github.com/Devrajj-14/ThermalFaultAnalyzer.git
 cd ThermalFaultAnalyzer
+```
 
+### 2. Create a virtual environment (recommended)
+
+```bash
+python3 -m venv venv
+source venv/bin/activate        # macOS / Linux
+# venv\Scripts\activate         # Windows
+```
+
+### 3. Install dependencies
+
+```bash
 pip install -r requirements.txt
+```
 
+### 4. Configure environment variables
+
+```bash
 cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY (optional)
+```
 
+Open `.env` and set your Gemini API key if you want AI-generated summaries:
+
+```
+GEMINI_API_KEY=your_key_here
+```
+
+Leave it blank to use the deterministic template fallback — the app works fully without it.
+
+### 5. Run the server
+
+```bash
 python app_v2.py
 ```
 
-Open **http://127.0.0.1:5001**
+### 6. Open the dashboard
+
+```
+http://127.0.0.1:5001
+```
+
+Upload any thermal image (JPG, PNG, BMP, TIFF — max 10 MB) and click **Analyze Thermal Image**.
 
 ---
 
@@ -80,83 +193,61 @@ Open **http://127.0.0.1:5001**
 |---|---|---|
 | `GEMINI_API_KEY` | Optional | Google Gemini API key for AI summaries. Falls back to templates if not set. |
 | `PORT` | Optional | Server port (default: 5001) |
-| `FLASK_ENV` | Optional | `development` or `production` |
 
 ---
 
-## API Response Format
+## API
+
+**POST** `/predict`
+
+```
+Content-Type: multipart/form-data
+Field: image  (file)
+```
+
+Example with curl:
+
+```bash
+curl -X POST -F "image=@your_thermal_image.jpg" http://127.0.0.1:5001/predict
+```
+
+Response shape:
 
 ```json
 {
   "success": true,
   "fault_type": "hotspot",
   "severity": "high",
-  "confidence": 0.86,
+  "confidence": 0.92,
   "panel_health": "degraded",
-  "score": 78.4,
+  "score": 78.9,
   "inference_mode": "rule_based",
-  "action_timeline": "Inspect within 2–5 days",
+  "action_timeline": "Inspect within 3–7 days",
   "risk_timeline": "May reduce performance in 1–3 months",
   "metrics": {
-    "hotspot_area_percent": 8.4,
-    "region_count": 2,
-    "estimated_temp_delta": 14.2,
-    "power_drop_estimate": 4.2
+    "hotspot_area_percent": 12.7,
+    "region_count": 5,
+    "thermal_contrast": 30.3,
+    "power_drop_estimate": 17.8
   },
   "xai": {
-    "top_reason": "Concentrated hotspot detected covering 8.4% of panel area",
+    "top_reason": "Significant thermal anomaly covering 12.7% of panel area across 5 region(s).",
     "explanation_points": ["..."],
-    "visual_path": "/static/generated/xai/xai_abc123.png",
-    "xai_image_base64": "..."
+    "xai_image_base64": "...",
+    "ranked_regions": [
+      { "area_pct": 3.82, "importance": 0.90, "contrast": 0.23, "x": 171, "y": 197, "bw": 80, "bh": 149 }
+    ]
   },
   "genai": {
     "user_summary": "...",
     "maintenance_advice": "...",
-    "technical_summary": "...",
-    "source": "gemini"
+    "technical_summary": "Hotspot | High severity | 92% confidence | Area: 12.7% | Regions: 5 | Thermal contrast: 30.3 | Est. power impact: 17.8%",
+    "source": "template"
   }
 }
 ```
 
----
-
-## Inference Modes
-
-**Rule-based (default fallback)**
-Uses deterministic thresholds on extracted thermal features:
-- Hotspot area percentage
-- Region count
-- Thermal contrast (intensity std-dev)
-- Estimated temperature delta
-
-**Model-based (future)**
-The `models/` directory contains a GNN architecture. To integrate:
-1. Train the model using `models/train.py` with labelled data
-2. Implement `_model_based_inference()` in `services/inference_service.py`
-3. The app will automatically prefer model-based inference when `models/solar_panel_gnn.pth` is present
-
----
-
-## XAI Approach
-
-This system uses transparent, region-based XAI — not a black-box model.
-
-Every explanation is grounded in actual computed values:
-- Detected hotspot regions (contours from thresholding)
-- Hotspot area percentage
-- Region count
-- Thermal contrast between hotspot and background
-
-A JET colormap heatmap is overlaid on the original image with bounding boxes and region labels.
-
----
-
-## GenAI Grounding
-
-The Gemini prompt strictly instructs the model:
-> "Use only the supplied structured fields. Do not invent causes, temperatures, component failures, or exact remaining useful life unless explicitly provided."
-
-If `GEMINI_API_KEY` is not set or the API call fails, a deterministic template-based summary is used automatically.
+**GET** `/health` — returns `{"status": "healthy"}`
 
 ---
 
@@ -166,23 +257,33 @@ If `GEMINI_API_KEY` is not set or the API call fails, a deterministic template-b
 python -m pytest tests/ -v
 ```
 
-Note: If you have a broken `langsmith` pytest plugin in your environment, the `conftest.py` handles it automatically.
+---
+
+## Detection Approach
+
+The detector works on **color-mapped thermal images** (JET colormap), not raw grayscale:
+
+1. Computes a per-pixel **thermal score** from RGB channel relationships — red minus blue captures the JET hot-to-cold axis, with boosts for orange/yellow and near-white pixels
+2. Applies **adaptive percentile thresholding** (top 8% of thermal scores) with a dynamic range check for uniform images
+3. Scores each candidate region by a weighted combination of: peak score (30%), mean score (25%), log-normalised area (20%), compactness (10%), interior penalty (15%)
+4. **Penalises thin border-hugging strips** — regions touching the image edge with aspect ratio > 4 get a 0.1× interior score
+5. **Merges nearby regions** via dilation before re-scoring
+6. Keeps the **top 5 regions by importance score**
 
 ---
 
 ## Limitations
 
-- **No exact remaining panel life prediction** — this requires time-series performance history and cannot be inferred from a single thermal image. The system provides recommended action timelines only.
-- **Rule-based XAI** — the current XAI is based on image processing, not a trained CNN attention map. Captum/GradCAM integration is possible once a CNN model is trained.
-- **Temperature proxy** — panel temperature is estimated from pixel intensity, not from a calibrated thermal sensor. Treat as a relative indicator.
-- **Single image analysis** — no temporal trend analysis across multiple images.
+- Temperature values are visual proxies from image intensity, not calibrated sensor readings
+- Rule-based XAI uses image processing, not trained model attention maps
+- Single-image analysis only — no temporal trend tracking
+- No exact remaining panel life prediction from a single image
 
 ---
 
-## Future Improvements
+## Future Work
 
-- Train a CNN classifier on the C/H/S labelled dataset and integrate into `inference_service.py`
-- Add Captum Integrated Gradients for true model-based XAI
+- Train a CNN classifier on the C/H/S labelled dataset
+- Integrate Captum Integrated Gradients for model-based XAI
 - Add time-series panel performance tracking
-- Add batch image analysis endpoint
-- Add user authentication for multi-tenant deployments
+- Add batch analysis endpoint

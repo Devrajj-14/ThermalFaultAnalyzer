@@ -31,6 +31,8 @@ The top banner shows the five key outputs at a glance:
 ---
 
 ### Fault Detection & XAI Heatmap
+<img width="1280" height="577" alt="image" src="https://github.com/user-attachments/assets/4fe80244-c5d8-4462-b8d9-0ec12fae2b9e" />
+
 ![Detection and XAI](docs/screenshots/detection_xai.png)
 
 Three side-by-side panels:
@@ -42,6 +44,8 @@ Three side-by-side panels:
 
 ### Why This Result
 ![Explanation](docs/screenshots/explanation.png)
+<img width="1280" height="578" alt="image" src="https://github.com/user-attachments/assets/b235ec07-fd64-4573-9c26-87ebcbd5aec9" />
+
 
 Concise evidence bullets grounded in computed values — no invented explanations:
 - Anomaly area coverage
@@ -54,6 +58,8 @@ Paired with a **Recommended Timeline** card showing action deadline and risk out
 ---
 
 ### AI-Generated Analysis
+<img width="1280" height="439" alt="image" src="https://github.com/user-attachments/assets/693ca357-b084-4197-8d23-f662c694429b" />
+
 ![AI Analysis](docs/screenshots/ai_analysis.png)
 
 Three sections powered by Gemini (falls back to deterministic templates if API unavailable):
@@ -65,6 +71,8 @@ Three sections powered by Gemini (falls back to deterministic templates if API u
 
 ### Technical Metrics Table
 ![Metrics](docs/screenshots/metrics.png)
+<img width="1280" height="433" alt="image" src="https://github.com/user-attachments/assets/4f81c886-e19a-4f04-a339-c32411e512d7" />
+
 
 | Metric | Est. Value | Threshold | Status |
 |---|---|---|---|
@@ -80,6 +88,8 @@ All values are estimates derived from image analysis, not calibrated sensor read
 
 ### Detected Fault Regions
 ![Regions](docs/screenshots/regions.png)
+<img width="1280" height="675" alt="image" src="https://github.com/user-attachments/assets/0517b83b-9ce6-49fc-b225-27f1293130bb" />
+
 
 Each detected region is shown as a ranked row with:
 - Square-padded 128×128 thumbnail

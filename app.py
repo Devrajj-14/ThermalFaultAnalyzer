@@ -42,12 +42,17 @@ def predict():
         _, thresh = cv2.threshold(img_gray, thr_value, 255, cv2.THRESH_BINARY)
         
         # Use morphological operations to reduce noise
-        kernel = np.ones((3, 3), np.uint8)
+        kernel = np.ones((5, 5), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
         
         # Find contours representing fault areas
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
+        # Filter out tiny contours (noise) — only keep areas > 0.1% of image size
+        min_area = 0.001 * img_gray.shape[0] * img_gray.shape[1]
+        contours = [cnt for cnt in contours if cv2.contourArea(cnt) > min_area]
+
         detection_img = img_bgr.copy()
         fault_parts = []
         fault_temperatures = []  # list for average intensity in each fault region
@@ -80,9 +85,10 @@ def predict():
             # If no faults are detected, fallback to the entire image average.
             max_fault_intensity = np.mean(img_gray)
             
-        # Suppose 0 intensity => 0°C and 255 => 80°C (a simplified calibration)
-        max_temp_range = 80.0
-        actual_temp = (max_fault_intensity / 255.0) * max_temp_range
+        # Map intensity to realistic panel temperature range: 25°C (min) to 85°C (max)
+        min_panel_temp = 25.0
+        max_panel_temp = 85.0
+        actual_temp = min_panel_temp + (max_fault_intensity / 255.0) * (max_panel_temp - min_panel_temp)
         
         # ---------------------------------------------------------------------------------
         # Now modify the performance metrics to depend on the derived temperature.
@@ -94,29 +100,35 @@ def predict():
         else:
             dynamic_expected = base_expected_output
 
-        # For demonstration, let the actual_output vary with confidence.
-        # (In a real implementation, these values would come from measurements or predictions.)
-        actual_output = 1420.0 if confidence >= 5 else 1500.0
+        # actual_output scales with fault severity: more faults = lower output
+        # confidence represents % of hot pixels; scale output between 95% and 100% of expected
+        fault_factor = 1.0 - (confidence / 100.0) * 0.15  # max 15% reduction at 100% confidence
+        actual_output = dynamic_expected * fault_factor
         
         # ----- Dynamic Metrics Calculation -----
         power_drop = ((dynamic_expected - actual_output) / dynamic_expected) * 100.0
 
         # Performance Ratio (PR)
-        installed_power = 1000  # kWp
-        irradiance = 5.5        # kWh/m²/day
+        # PR = actual_output / (installed_power_kWp * irradiance_kWh/m2/day * days)
+        # Units must be consistent: actual_output in kWh, theoretical_max in kWh
+        # For a 1 kWp system over 1 day with 5.5 kWh/m²/day irradiance:
+        installed_power = 1  # kWp (matching the scale of actual_output ~1420-1500 kWh/year per kWp)
+        irradiance = 5.5     # kWh/m²/day (peak sun hours)
         days = 365
-        theoretical_max = installed_power * irradiance * days
+        theoretical_max = installed_power * irradiance * days  # ~2007.5 kWh/year per kWp
         pr = (actual_output / theoretical_max) * 100.0
 
         # Annual Degradation Rate over a 5-year period
         years = 5
         degradation_rate = ((dynamic_expected - actual_output) / (dynamic_expected * years)) * 100.0
 
-        # Temperature Loss Calculation using the derived temperature
+        # Temperature Loss/Gain Calculation using the derived temperature
         stc_temp = 25          # Standard Test Condition temperature (°C)
-        rated_power = 1000     # kWp
-        temp_coeff = -0.0045
-        temperature_loss = temp_coeff * (actual_temp - stc_temp) * rated_power
+        rated_power = 1000     # W (1 kWp panel)
+        temp_coeff = -0.0045   # -0.45%/°C typical for crystalline silicon
+        temp_delta = actual_temp - stc_temp
+        temperature_loss = temp_coeff * temp_delta * rated_power  # positive = loss, negative = gain
+        temp_loss_label = "Temperature Gain" if temperature_loss < 0 else "Temperature Loss"
         # ---------------------------------------------------------------------------------
 
         # Build the analysis dictionary
@@ -143,8 +155,8 @@ def predict():
                               if degradation_rate > 0.7 else "Normal")
             },
             "temperature_loss": {
-                "observed_value": round(temperature_loss, 2),
-                "inference": f"Loss due to temperature: {round(temperature_loss, 2)} kW."
+                "observed_value": round(abs(temperature_loss), 2),
+                "inference": f"{temp_loss_label}: {round(abs(temperature_loss), 2)} W at {round(actual_temp, 2)}°C panel temp."
             },
             # For debugging or display purposes:
             "derived_temperature": {

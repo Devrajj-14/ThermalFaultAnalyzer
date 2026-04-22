@@ -2,212 +2,794 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Solar Farm Monitoring Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ThermalFaultAnalyzer — Solar Panel Intelligence</title>
   <style>
-    /* Basic page styling */
+    :root {
+      --bg: #0a0e1a;
+      --surface: #141824;
+      --surface-elevated: #1a1f2e;
+      --border: #252b3d;
+      --border-subtle: #1d2332;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #e5e7eb;
+      --text-muted: #9ca3af;
+      --text-subtle: #6b7280;
+      --radius: 10px;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: Arial, sans-serif;
-      background: #f4f7f9;
-      margin: 0;
-      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 32px 20px;
     }
-    h2, h3 {
+
+    .container { max-width: 1200px; margin: 0 auto; }
+
+    /* Header */
+    header {
       text-align: center;
-      color: #333;
+      margin-bottom: 48px;
     }
-    .section {
-      margin-bottom: 40px;
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
     }
-    /* Container styles for upload section */
+    header .subtitle {
+      color: var(--text-muted);
+      font-size: 1rem;
+      font-weight: 400;
+    }
+
+    /* Upload Section */
     .upload-section {
-      max-width: 600px;
-      margin: 0 auto;
-      background: #fff;
-      padding: 20px;
-      border: 1px solid #ddd;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      margin-bottom: 32px;
+      box-shadow: var(--shadow);
+    }
+    .section-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
       border-radius: 8px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .upload-section input {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    .upload-section button {
-      background: #007bff;
-      color: #fff;
-      border: none;
-      padding: 10px 20px;
-      font-size: 16px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .upload-section button:hover {
-      background: #0056b3;
-    }
-    /* Image display grid */
-    .image-grid {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 20px;
-      margin-top: 20px;
-    }
-    .card {
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      padding: 10px;
+      padding: 48px 32px;
       text-align: center;
-      width: 300px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--surface-elevated);
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.05);
+    }
+    .drop-zone input { display: none; }
+    .drop-zone .icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+    .drop-zone p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+    }
+    .drop-zone .hint {
+      font-size: 0.85rem;
+      color: var(--text-subtle);
+    }
+    .drop-zone .filename {
+      color: var(--accent);
+      margin-top: 12px;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 32px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-row {
+      margin-top: 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-msg {
+      font-size: 0.9rem;
+      padding: 10px 16px;
+      border-radius: 6px;
+      display: none;
+      font-weight: 500;
+    }
+    .status-msg.show { display: inline-flex; align-items: center; gap: 8px; }
+    .status-msg.processing {
+      background: rgba(59, 130, 246, 0.1);
+      color: var(--accent);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+    .status-msg.error {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    /* Results */
+    #results { display: none; }
+    #results.show { display: block; }
+
+    /* Summary Banner */
+    .summary-banner {
+      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      margin-bottom: 32px;
+      box-shadow: var(--shadow);
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 24px;
+    }
+    .summary-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .summary-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .summary-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      letter-spacing: 0.02em;
+    }
+    .badge-normal {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-hotspot {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .badge-severe {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .health-badge {
+      padding: 5px 12px;
+      border-radius: 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .health-healthy { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+    .health-watchlist { background: rgba(59, 130, 246, 0.1); color: var(--accent); }
+    .health-degraded { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+    .health-critical { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+    .mode-badge {
+      font-size: 0.7rem;
+      padding: 4px 10px;
+      border-radius: 12px;
+      background: var(--surface-elevated);
+      color: var(--text-subtle);
+      border: 1px solid var(--border-subtle);
+      font-weight: 500;
+    }
+
+    /* Card System */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
     }
     .card img {
       width: 100%;
+      border-radius: 6px;
+      margin-top: 12px;
+      border: 1px solid var(--border-subtle);
     }
-    /* Table styling for metrics output */
-    table {
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 900px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    /* XAI Section */
+    .xai-reason {
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+    .explanation-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .explanation-list li {
+      padding: 12px 16px;
+      background: var(--surface-elevated);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      border-left: 3px solid var(--accent);
+      line-height: 1.5;
+    }
+
+    /* Timeline */
+    .timeline-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 600px) {
+      .timeline-grid { grid-template-columns: 1fr; }
+    }
+    .timeline-card {
+      background: var(--surface-elevated);
+      border-radius: 8px;
+      padding: 20px;
+      border: 1px solid var(--border-subtle);
+    }
+    .timeline-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .timeline-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    /* GenAI Section */
+    .genai-block {
+      background: var(--surface-elevated);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border-subtle);
+    }
+    .genai-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+    .genai-text {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: var(--text-muted);
+    }
+    .genai-source {
+      font-size: 0.75rem;
+      color: var(--text-subtle);
+      margin-top: 12px;
+      font-style: italic;
+    }
+
+    /* Metrics Table */
+    .metrics-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 20px;
+      font-size: 0.875rem;
     }
-    table, th, td {
-      border: 1px solid #ddd;
+    .metrics-table th {
+      text-align: left;
+      padding: 12px;
+      color: var(--text-subtle);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
-    th, td {
-      padding: 8px;
-      text-align: center;
+    .metrics-table td {
+      padding: 14px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-muted);
     }
+    .metrics-table tr:last-child td { border-bottom: none; }
+    .metrics-table td:first-child { font-weight: 600; color: var(--text); }
+    .metrics-table .status-ok { color: var(--success); }
+    .metrics-table .status-bad { color: var(--danger); }
+
+    /* Fault Parts */
+    .fault-parts-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .fault-part-img {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    /* Spacing */
+    .mb-24 { margin-bottom: 24px; }
+    .mb-32 { margin-bottom: 32px; }
   </style>
 </head>
 <body>
-  <h2>Solar Farm Monitoring Dashboard</h2>
-  
-  <!-- Section 1: Image Upload & Fault Detection -->
-  <div class="section upload-section">
-    <h3>Upload Thermal Image</h3>
-    <input type="file" id="fileInput" accept="image/*">
-    <button onclick="predict()">Predict Faults</button>
-    <p id="uploadOutput"></p>
-    <div class="image-grid">
-      <div class="card">
-        <h4>Input Image</h4>
-        <img id="inputImg" src="" alt="Input Image">
+  <div class="container">
+    <header>
+      <h1>ThermalFaultAnalyzer</h1>
+      <p class="subtitle">Intelligent solar panel thermal fault detection & analysis</p>
+    </header>
+
+    <!-- Upload Section -->
+    <div class="upload-section">
+      <div class="section-label">Upload Thermal Image</div>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <input type="file" id="fileInput" accept="image/*" onchange="onFileSelected(this)">
+        <div class="icon">📸</div>
+        <p>Click or drag & drop a thermal image</p>
+        <p class="hint">Supported: JPG, PNG, BMP, TIFF — max 10 MB</p>
+        <div class="filename" id="selectedFile"></div>
       </div>
-      <div class="card">
-        <h4>Fault Detection</h4>
-        <img id="faultImg" src="" alt="Fault Detection">
-      </div>
-      <div class="card">
-        <h4>Fault Parts</h4>
-        <div id="faultPartsContainer"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="predictBtn" onclick="predict()" disabled>
+          Analyze Thermal Image
+        </button>
+        <span class="status-msg" id="statusMsg"></span>
       </div>
     </div>
-  </div>
-  
-  <!-- Section 2: Auto Display Analysis Metrics -->
-  <div class="section">
-    <h3>Analysis Metrics</h3>
-    <div id="calcResults"></div>
-  </div>
-  
+
+    <!-- Results -->
+    <div id="results">
+
+      <!-- Summary Banner -->
+      <div class="summary-banner">
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="summary-label">Fault Classification</div>
+            <span class="badge" id="faultBadge"></span>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Panel Health</div>
+            <span class="health-badge" id="healthBadge"></span>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Severity</div>
+            <div class="summary-value" id="statSeverity">—</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Confidence</div>
+            <div class="summary-value" id="statConfidence">—</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Risk Score</div>
+            <div class="summary-value" id="statScore">—</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Analysis Mode</div>
+            <span class="mode-badge" id="modeBadge"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Image Comparison -->
+      <div class="grid-3 mb-32">
+        <div class="card">
+          <div class="card-title">Input Image</div>
+          <img id="inputImg" src="" alt="Input thermal image">
+        </div>
+        <div class="card">
+          <div class="card-title">Fault Detection</div>
+          <img id="faultImg" src="" alt="Fault detection overlay">
+        </div>
+        <div class="card">
+          <div class="card-title">XAI Heatmap</div>
+          <img id="xaiImg" src="" alt="XAI explanation heatmap">
+        </div>
+      </div>
+
+      <!-- Explanation -->
+      <div class="card mb-32">
+        <div class="card-title">Why This Result</div>
+        <div class="xai-reason" id="topReason"></div>
+        <ul class="explanation-list" id="explanationList"></ul>
+      </div>
+
+      <!-- Timeline -->
+      <div class="card mb-32">
+        <div class="card-title">Recommended Timeline</div>
+        <div class="timeline-grid">
+          <div class="timeline-card">
+            <div class="timeline-label">⚡ Action Required</div>
+            <div class="timeline-value" id="actionTimeline"></div>
+          </div>
+          <div class="timeline-card">
+            <div class="timeline-label">⚠️ Risk Outlook</div>
+            <div class="timeline-value" id="riskTimeline"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Analysis -->
+      <div class="card mb-32">
+        <div class="card-title">AI-Generated Analysis</div>
+        <div class="genai-block">
+          <div class="genai-label">Summary</div>
+          <div class="genai-text" id="genaiSummary"></div>
+        </div>
+        <div class="genai-block">
+          <div class="genai-label">Maintenance Recommendation</div>
+          <div class="genai-text" id="genaiMaintenance"></div>
+        </div>
+        <div class="genai-block">
+          <div class="genai-label">Technical Summary</div>
+          <div class="genai-text" id="genaiTechnical"></div>
+        </div>
+        <div class="genai-source" id="genaiSource"></div>
+      </div>
+
+      <!-- Technical Metrics -->
+      <div class="card mb-32">
+        <div class="card-title">Technical Metrics</div>
+        <table class="metrics-table" id="metricsTable"></table>
+      </div>
+
+      <!-- Detected Regions (compact table) -->
+      <div class="card" id="faultPartsCard" style="display:none;">
+        <div class="card-title">Detected Fault Regions</div>
+        <div id="faultPartsContent"></div>
+      </div>
+
+    </div><!-- /results -->
+  </div><!-- /container -->
+
   <script>
-    async function predict() {
-      const fileInput = document.getElementById("fileInput");
-      const uploadOutput = document.getElementById("uploadOutput");
-      const faultPartsContainer = document.getElementById("faultPartsContainer");
-      const calcResults = document.getElementById("calcResults");
-
-      // Clear previous results
-      uploadOutput.innerText = "";
-      document.getElementById("inputImg").src = "";
-      document.getElementById("faultImg").src = "";
-      faultPartsContainer.innerHTML = "";
-      calcResults.innerHTML = "";
-
-      if (!fileInput.files.length) {
-        alert("Please select an image first!");
-        return;
+    // Drag & drop
+    const dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        document.getElementById('fileInput').files = e.dataTransfer.files;
+        onFileSelected({ files: [file] });
       }
+    });
 
-      uploadOutput.innerText = "⏳ Processing...";
+    function onFileSelected(input) {
+      const file = input.files[0];
+      if (file) {
+        document.getElementById('selectedFile').textContent = `📎 ${file.name}`;
+        document.getElementById('predictBtn').disabled = false;
+      }
+    }
+
+    function setStatus(msg, type) {
+      const el = document.getElementById('statusMsg');
+      el.textContent = msg;
+      el.className = `status-msg show ${type}`;
+    }
+
+    function clearStatus() {
+      const el = document.getElementById('statusMsg');
+      el.className = 'status-msg';
+    }
+
+    function faultBadgeClass(faultType) {
+      if (faultType === 'normal') return 'badge badge-normal';
+      if (faultType === 'hotspot') return 'badge badge-hotspot';
+      return 'badge badge-severe';
+    }
+
+    function healthBadgeClass(health) {
+      const map = {
+        healthy: 'health-badge health-healthy',
+        watchlist: 'health-badge health-watchlist',
+        degraded: 'health-badge health-degraded',
+        critical: 'health-badge health-critical'
+      };
+      return map[health] || 'health-badge health-watchlist';
+    }
+
+    function faultLabel(faultType) {
+      const map = {
+        normal: 'Normal',
+        hotspot: 'Hotspot',
+        severe_thermal_anomaly: 'Severe Anomaly'
+      };
+      return map[faultType] || faultType;
+    }
+
+    async function predict() {
+      const fileInput = document.getElementById('fileInput');
+      if (!fileInput.files.length) { alert('Please select an image first.'); return; }
+
+      document.getElementById('predictBtn').disabled = true;
+      setStatus('Analyzing thermal image...', 'processing');
+      document.getElementById('results').classList.remove('show');
+
       const formData = new FormData();
-      formData.append("image", fileInput.files[0]);
+      formData.append('image', fileInput.files[0]);
 
       try {
-        const res = await fetch("/predict", { method: "POST", body: formData });
+        const res = await fetch('/predict', { method: 'POST', body: formData });
         const data = await res.json();
-        if (data.error) {
-          uploadOutput.innerText = "❌ " + data.error;
+
+        if (!data.success) {
+          setStatus('❌ ' + (data.error || 'Analysis failed'), 'error');
+          document.getElementById('predictBtn').disabled = false;
           return;
         }
-        uploadOutput.innerText = `✅ ${data.prediction} (Confidence: ${data.confidence}%)`;
-        document.getElementById("inputImg").src = "data:image/png;base64," + data.input_image;
-        document.getElementById("faultImg").src = "data:image/png;base64," + data.fault_detection;
-        
-        // Display individual fault parts
-        if (data.fault_parts && Array.isArray(data.fault_parts)) {
-          data.fault_parts.forEach((base64Str, index) => {
-            const faultDiv = document.createElement("div");
-            faultDiv.style.border = "3px dashed #007bff";
-            faultDiv.style.margin = "10px";
-            faultDiv.style.padding = "5px";
-            const faultImg = document.createElement("img");
-            faultImg.src = "data:image/png;base64," + base64Str;
-            faultImg.alt = `Fault Part ${index + 1}`;
-            faultDiv.appendChild(faultImg);
-            faultPartsContainer.appendChild(faultDiv);
-          });
+
+        clearStatus();
+        renderResults(data);
+        document.getElementById('results').classList.add('show');
+
+      } catch (err) {
+        setStatus('❌ Network error: ' + err.message, 'error');
+      } finally {
+        document.getElementById('predictBtn').disabled = false;
+      }
+    }
+
+    function renderResults(data) {
+      // Summary banner
+      const faultBadge = document.getElementById('faultBadge');
+      faultBadge.textContent = faultLabel(data.fault_type);
+      faultBadge.className = faultBadgeClass(data.fault_type);
+
+      const healthBadge = document.getElementById('healthBadge');
+      healthBadge.textContent = (data.panel_health || '').charAt(0).toUpperCase() + (data.panel_health || '').slice(1);
+      healthBadge.className = healthBadgeClass(data.panel_health);
+
+      document.getElementById('statSeverity').textContent = (data.severity || '—').charAt(0).toUpperCase() + (data.severity || '').slice(1);
+      document.getElementById('statConfidence').textContent = ((data.confidence || 0) * 100).toFixed(0) + '%';
+      document.getElementById('statScore').textContent = (data.score || 0).toFixed(1);
+      document.getElementById('modeBadge').textContent = data.inference_mode === 'model' ? 'Model-based' : 'Rule-based';
+
+      // Images
+      if (data.images) {
+        document.getElementById('inputImg').src = 'data:image/png;base64,' + data.images.input_image;
+        document.getElementById('faultImg').src = 'data:image/png;base64,' + data.images.fault_detection;
+      } else {
+        document.getElementById('inputImg').src = 'data:image/png;base64,' + data.input_image;
+        document.getElementById('faultImg').src = 'data:image/png;base64,' + data.fault_detection;
+      }
+
+      // XAI
+      if (data.xai) {
+        if (data.xai.xai_image_base64) {
+          document.getElementById('xaiImg').src = 'data:image/png;base64,' + data.xai.xai_image_base64;
+        }
+        document.getElementById('topReason').textContent = data.xai.top_reason || '';
+        const list = document.getElementById('explanationList');
+        list.innerHTML = '';
+        (data.xai.explanation_points || []).forEach(pt => {
+          const li = document.createElement('li');
+          li.textContent = pt;
+          list.appendChild(li);
+        });
+      }
+
+      // Timeline
+      document.getElementById('actionTimeline').textContent = data.action_timeline || '—';
+      document.getElementById('riskTimeline').textContent = data.risk_timeline || '—';
+
+      // GenAI
+      if (data.genai) {
+        document.getElementById('genaiSummary').textContent = data.genai.user_summary || '';
+        document.getElementById('genaiMaintenance').textContent = data.genai.maintenance_advice || '';
+        document.getElementById('genaiTechnical').textContent = data.genai.technical_summary || '';
+        const src = data.genai.source;
+        document.getElementById('genaiSource').textContent = src === 'gemini' ? 'Powered by Gemini AI' : 'Template-based analysis';
+      }
+
+      // Metrics table — reads exclusively from data.analysis (single source of truth)
+      if (data.analysis) {
+        const a = data.analysis;
+        const table = document.getElementById('metricsTable');
+        table.innerHTML = `<thead><tr><th>Metric</th><th>Est. Value</th><th>Threshold</th><th>Status</th><th>Notes</th></tr></thead>`;
+        const tbody = document.createElement('tbody');
+
+        const rows = [
+          ['Power Impact (est.)',
+            a.power_output_drop?.observed_value + '%',
+            a.power_output_drop?.standard_threshold,
+            a.power_output_drop?.status,
+            a.power_output_drop?.inference],
+          ['Performance Ratio',
+            a.performance_ratio?.observed_value + '%',
+            a.performance_ratio?.standard_threshold,
+            a.performance_ratio?.status,
+            a.performance_ratio?.inference],
+          ['Annual Degradation',
+            a.degradation_rate?.observed_value + '%/yr',
+            a.degradation_rate?.standard_threshold,
+            a.degradation_rate?.status,
+            a.degradation_rate?.inference],
+        ];
+
+        // Only add temperature effect row if backend returned it (non-null)
+        if (a.temperature_effect) {
+          rows.push([
+            'Thermal Power Loss (est.)',
+            a.temperature_effect.observed_value + ' W',
+            '—', '⚠️',
+            a.temperature_effect.inference
+          ]);
         }
 
-        // Now automatically display analysis metrics from the prediction
-        if (data.analysis) {
-          const analysis = data.analysis;
-          let resultsHtml = `
-            <table>
-              <tr>
-                <th>Metric</th>
-                <th>Observed Value</th>
-                <th>Standard Threshold</th>
-                <th>Status</th>
-                <th>Inference</th>
-              </tr>
-              <tr>
-                <td>Power Output Drop</td>
-                <td>${analysis.power_output_drop.observed_value}%</td>
-                <td>${analysis.power_output_drop.standard_threshold}</td>
-                <td>${analysis.power_output_drop.status}</td>
-                <td>${analysis.power_output_drop.inference}</td>
-              </tr>
-              <tr>
-                <td>Performance Ratio (PR)</td>
-                <td>${analysis.performance_ratio.observed_value}%</td>
-                <td>${analysis.performance_ratio.standard_threshold}</td>
-                <td>${analysis.performance_ratio.status}</td>
-                <td>${analysis.performance_ratio.inference}</td>
-              </tr>
-              <tr>
-                <td>Annual Degradation Rate</td>
-                <td>${analysis.degradation_rate.observed_value}%/year</td>
-                <td>${analysis.degradation_rate.standard_threshold}</td>
-                <td>${analysis.degradation_rate.status}</td>
-                <td>${analysis.degradation_rate.inference}</td>
-              </tr>
-              <tr>
-                <td>Temperature Loss</td>
-                <td>${analysis.temperature_loss.observed_value} kW</td>
-                <td>-</td>
-                <td>-</td>
-                <td>${analysis.temperature_loss.inference}</td>
-              </tr>
-            </table>
-          `;
-          calcResults.innerHTML = resultsHtml;
-        }
-      } catch (err) {
-        uploadOutput.innerText = "❌ Error: " + err.message;
+        // Thermal estimate row — always shown, clearly labelled
+        rows.push([
+          'Thermal Level',
+          a.thermal_estimate?.value || '—',
+          '—', '—',
+          a.thermal_estimate?.note || '—'
+        ]);
+
+        rows.forEach(([metric, val, thr, status, inf]) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${metric}</td><td><strong>${val}</strong></td><td>${thr}</td><td>${status}</td><td>${inf}</td>`;
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+      }
+
+      // Detected fault regions — compact table + thumbnails
+      const partsCard = document.getElementById('faultPartsCard');
+      const partsContent = document.getElementById('faultPartsContent');
+      partsContent.innerHTML = '';
+
+      const parts = data.images?.fault_parts || data.fault_parts || [];
+      const regionMeta = data.xai?.ranked_regions || [];
+
+      if (parts.length > 0) {
+        partsCard.style.display = 'block';
+
+        // Build a grid: thumbnail + metadata side by side
+        const grid = document.createElement('div');
+        grid.style.cssText = 'display:flex;flex-direction:column;gap:12px;margin-top:4px;';
+
+        parts.forEach((b64, i) => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:16px;padding:12px;background:var(--surface-elevated);border-radius:8px;border:1px solid var(--border-subtle);';
+
+          // Rank badge
+          const rank = document.createElement('div');
+          rank.style.cssText = 'min-width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0;';
+          rank.textContent = `#${i + 1}`;
+
+          // Thumbnail
+          const img = document.createElement('img');
+          img.src = 'data:image/png;base64,' + b64;
+          img.alt = `Region ${i + 1}`;
+          img.style.cssText = 'width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0;';
+
+          // Meta text
+          const meta = document.createElement('div');
+          meta.style.cssText = 'font-size:0.85rem;color:var(--text-muted);line-height:1.6;';
+          const rm = regionMeta[i];
+          if (rm) {
+            meta.innerHTML = `<span style="color:var(--text);font-weight:600;">Region ${i + 1}</span><br>
+              Area: ${(rm.area_pct || 0).toFixed(2)}% &nbsp;·&nbsp;
+              Importance: ${(rm.importance || 0).toFixed(2)} &nbsp;·&nbsp;
+              Contrast: ${(rm.contrast || 0).toFixed(2)}<br>
+              Bbox: (${rm.x || 0}, ${rm.y || 0}) ${rm.bw || 0}×${rm.bh || 0}px`;
+          } else {
+            meta.innerHTML = `<span style="color:var(--text);font-weight:600;">Region ${i + 1}</span>`;
+          }
+
+          row.appendChild(rank);
+          row.appendChild(img);
+          row.appendChild(meta);
+          grid.appendChild(row);
+        });
+
+        partsContent.appendChild(grid);
+      } else {
+        partsCard.style.display = 'none';
       }
     }
   </script>

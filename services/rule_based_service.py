@@ -8,12 +8,20 @@ produce similar luminance values (~0.3R + 0.59G + 0.11B).
 
 Detection strategy:
   1. Compute a "thermal score" per pixel using color channel relationships
-     that reflect the JET colormap ordering: blue→cyan→green→yellow→orange→red→white
   2. Use percentile-based adaptive thresholding on this thermal score
   3. Score each candidate region by: area, peak thermal score, contrast,
      compactness, and distance from image borders
   4. Penalise thin edge-hugging fragments
   5. Keep top meaningful regions only
+  6. Compute a spatial concentration score to distinguish genuine hotspots
+     from normal thermal gradients (the key discriminator for this dataset)
+
+IMPORTANT LIMITATION:
+  The C (clean), H (hotspot), and S (severe) classes in this dataset have
+  heavily overlapping feature distributions. Rule-based classification cannot
+  reliably separate them with high confidence. When features fall in the
+  ambiguous zone, confidence is reduced and a quality warning is attached.
+  A trained ML model is required for reliable classification.
 """
 
 import cv2
@@ -27,6 +35,73 @@ from config.settings import (
     REGION_COUNT_MED, REGION_COUNT_HIGH,
     SEVERITY_AREA_WEIGHT, SEVERITY_CONTRAST_WEIGHT, SEVERITY_REGION_WEIGHT,
 )
+
+
+# ---------------------------------------------------------------------------
+# Spatial concentration score
+# ---------------------------------------------------------------------------
+
+def _compute_concentration_score(thermal_score: np.ndarray) -> Dict:
+    """
+    Compute spatial concentration metrics that help distinguish genuine
+    hotspots from normal thermal gradients.
+
+    A genuine hotspot is:
+      - Spatially concentrated (small area, high peak)
+      - Isolated (surrounded by cooler background)
+      - Has a sharp peak relative to the surrounding area
+
+    A normal thermal gradient is:
+      - Diffuse (large area, moderate temperature)
+      - Not isolated (smoothly transitions to background)
+
+    Returns dict with:
+      concentration (float 0-1): how concentrated the hottest pixels are
+      isolation (float 0-1): how isolated the peak is from surrounding area
+      peak_sharpness (float): ratio of peak to local neighborhood mean
+      is_concentrated (bool): True if pattern looks like a genuine hotspot
+    """
+    h, w = thermal_score.shape
+
+    # Top 1% pixels
+    p99 = np.percentile(thermal_score, 99)
+    p80 = np.percentile(thermal_score, 80)
+    p50 = np.percentile(thermal_score, 50)
+
+    top1_area = float(np.sum(thermal_score >= p99)) / (h * w)
+    top20_area = float(np.sum(thermal_score >= p80)) / (h * w)
+
+    # Concentration: how much of the "hot energy" is in the top 1% of pixels
+    top1_energy = float(np.sum(thermal_score[thermal_score >= p99]))
+    total_energy = float(np.sum(thermal_score[thermal_score >= p50]))
+    concentration = top1_energy / max(total_energy, 1e-6)
+
+    # Peak sharpness: peak value vs mean of surrounding 10% pixels
+    p90 = np.percentile(thermal_score, 90)
+    peak_val = float(thermal_score.max())
+    surround_mean = float(np.mean(thermal_score[(thermal_score >= p80) & (thermal_score < p90)]))
+    peak_sharpness = peak_val / max(surround_mean, 1e-6)
+
+    # Isolation: difference between top-1% mean and top-20% mean (normalised)
+    top1_mean = float(np.mean(thermal_score[thermal_score >= p99])) if np.any(thermal_score >= p99) else 0
+    top20_mean = float(np.mean(thermal_score[thermal_score >= p80])) if np.any(thermal_score >= p80) else 0
+    score_range = float(thermal_score.max() - thermal_score.min())
+    isolation = (top1_mean - top20_mean) / max(score_range, 1e-6)
+
+    # A concentrated hotspot: concentration > 0.08, isolation > 0.05, sharpness > 1.3
+    is_concentrated = (
+        concentration > 0.08 and
+        isolation > 0.05 and
+        peak_sharpness > 1.25
+    )
+
+    return {
+        "concentration": round(concentration, 4),
+        "isolation": round(isolation, 4),
+        "peak_sharpness": round(peak_sharpness, 4),
+        "is_concentrated": is_concentrated,
+        "top1_area_pct": round(top1_area * 100, 3),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -164,6 +239,9 @@ def extract_thermal_features(img_bgr: np.ndarray) -> Dict:
 
     # Step 1: thermal score map
     thermal_score = _compute_thermal_score(img_bgr)
+
+    # Step 1b: spatial concentration metrics
+    concentration_info = _compute_concentration_score(thermal_score)
 
     # Step 2: adaptive threshold
     # Use the top 8% of thermal scores as the hotspot candidate zone.
@@ -309,6 +387,12 @@ def extract_thermal_features(img_bgr: np.ndarray) -> Dict:
         "actual_temp": round(actual_temp, 2),
         "thermal_score_map": thermal_score,
         "adaptive_threshold": round(float(threshold_pct), 3),
+        # Spatial concentration metrics
+        "concentration": concentration_info["concentration"],
+        "isolation": concentration_info["isolation"],
+        "peak_sharpness": concentration_info["peak_sharpness"],
+        "is_concentrated": concentration_info["is_concentrated"],
+        "top1_area_pct": concentration_info["top1_area_pct"],
     }
 
 
@@ -320,35 +404,63 @@ def classify_fault_type(features: Dict) -> Tuple[str, float]:
     """
     Classify fault type from extracted features.
 
-    Thresholds are calibrated for the thermal score contrast scale (0-100).
+    Uses both region-level features (area, contrast, count) AND
+    spatial concentration metrics to distinguish genuine hotspots
+    from normal thermal gradients.
+
+    HONEST CONFIDENCE: When features fall in the ambiguous zone where
+    C/H/S classes overlap, confidence is capped at 0.65 to reflect
+    the genuine uncertainty of rule-based classification on this dataset.
 
     Returns (fault_type, confidence).
     """
     area = features["hotspot_area_percent"]
     contrast = features["thermal_contrast"]
     region_count = features["region_count"]
+    is_concentrated = features.get("is_concentrated", False)
+    concentration = features.get("concentration", 0.0)
+    isolation = features.get("isolation", 0.0)
+    peak_sharpness = features.get("peak_sharpness", 1.0)
 
-    # Normal: truly no meaningful anomaly
+    # ── Normal: no meaningful anomaly ────────────────────────────────────────
     if region_count == 0:
-        return "normal", 0.95
+        return "normal", 0.92
 
     if area < 1.5 and contrast < 8.0:
         return "normal", 0.85
 
-    # Severe: large area + strong contrast + multiple regions
-    if area >= 15.0 and contrast >= 25.0 and region_count >= 3:
-        confidence = min(0.78 + (area / 100.0) * 0.15, 0.95)
+    # ── Severe: requires strong multi-factor evidence ─────────────────────────
+    # High area + high contrast + multiple regions + concentrated pattern
+    if area >= 15.0 and contrast >= 25.0 and region_count >= 3 and is_concentrated:
+        confidence = min(0.75 + (area / 100.0) * 0.12, 0.88)
         return "severe_thermal_anomaly", confidence
 
-    if area >= 25.0 and contrast >= 20.0:
-        return "severe_thermal_anomaly", 0.88
+    if area >= 25.0 and contrast >= 20.0 and is_concentrated:
+        return "severe_thermal_anomaly", 0.82
 
-    # Hotspot: clear anomaly present
-    base = 0.65
-    area_boost = min((area / 12.0) * 0.18, 0.22)
-    contrast_boost = min((contrast / 30.0) * 0.10, 0.10)
-    confidence = min(base + area_boost + contrast_boost, 0.92)
-    return "hotspot", confidence
+    # ── Hotspot: concentrated anomaly present ────────────────────────────────
+    if is_concentrated and contrast >= 15.0:
+        base = 0.68
+        area_boost = min((area / 15.0) * 0.12, 0.15)
+        contrast_boost = min((contrast / 40.0) * 0.08, 0.08)
+        concentration_boost = min(concentration * 0.5, 0.05)
+        confidence = min(base + area_boost + contrast_boost + concentration_boost, 0.88)
+        return "hotspot", confidence
+
+    # ── Ambiguous zone: features present but not concentrated ─────────────────
+    # This is where C/H/S classes heavily overlap.
+    # We still report the most likely class but cap confidence.
+    if area >= 5.0 and contrast >= 20.0:
+        # Likely hotspot but not definitively concentrated
+        confidence = min(0.55 + (concentration * 0.3) + (isolation * 0.2), 0.65)
+        return "hotspot", confidence
+
+    if area >= 2.0 and contrast >= 10.0:
+        confidence = min(0.50 + (concentration * 0.2), 0.60)
+        return "hotspot", confidence
+
+    # ── Default: normal with low confidence ──────────────────────────────────
+    return "normal", 0.65
 
 
 def classify_severity(features: Dict, fault_type: str) -> str:
@@ -389,15 +501,34 @@ def classify_severity(features: Dict, fault_type: str) -> str:
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def rule_based_inference(img_bgr: np.ndarray) -> Dict:
-    """Complete rule-based inference pipeline."""
+def rule_based_inference(img_bgr: np.ndarray, quality_penalty: float = 0.0) -> Dict:
+    """
+    Complete rule-based inference pipeline.
+
+    Args:
+        img_bgr: OpenCV BGR image
+        quality_penalty: confidence reduction from image quality assessment (0.0-0.5)
+
+    Returns dict with fault_type, severity, confidence, features, and
+    is_ambiguous flag indicating when the result has low certainty.
+    """
     features = extract_thermal_features(img_bgr)
     fault_type, confidence = classify_fault_type(features)
     severity = classify_severity(features, fault_type)
 
+    # Apply quality penalty to confidence
+    final_confidence = max(round(confidence - quality_penalty, 2), 0.30)
+
+    # Flag ambiguous results so the UI can show appropriate caveats
+    is_ambiguous = (
+        final_confidence < 0.65 or
+        not features.get("is_concentrated", False) and fault_type != "normal"
+    )
+
     return {
         "fault_type": fault_type,
         "severity": severity,
-        "confidence": round(confidence, 2),
+        "confidence": final_confidence,
         "features": features,
+        "is_ambiguous": is_ambiguous,
     }

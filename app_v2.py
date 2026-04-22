@@ -95,6 +95,8 @@ def predict():
         confidence = inference_result["confidence"]
         features = inference_result["features"]
         inference_mode = inference_result.get("inference_mode", "rule_based")
+        quality_report = inference_result.get("quality_report", {"warnings": [], "quality_level": "good", "confidence_penalty": 0.0})
+        is_ambiguous = inference_result.get("is_ambiguous", False)
         
         logger.info(
             "Inference complete: %s | %s | %.2f | mode=%s",
@@ -172,6 +174,8 @@ def predict():
             images=images,
             inference_mode=inference_mode,
             ranked_regions=ranked_meta,
+            quality_report=quality_report,
+            is_ambiguous=is_ambiguous,
         )
         
         logger.info("Prediction successful: %s", fault_type)

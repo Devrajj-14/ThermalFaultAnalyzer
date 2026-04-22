@@ -394,8 +394,42 @@
     .metrics-table .status-ok { color: var(--success); }
     .metrics-table .status-bad { color: var(--danger); }
 
-    /* Fault Parts */
-    .fault-parts-grid {
+    /* Quality Warning Banner */
+    .quality-banner {
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .quality-banner.poor {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+    }
+    .quality-banner.marginal {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      color: #fcd34d;
+    }
+    .quality-banner .q-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+    .quality-banner ul { margin: 6px 0 0 16px; padding: 0; }
+    .quality-banner li { margin-bottom: 4px; }
+
+    /* Ambiguous result notice */
+    .ambiguous-notice {
+      background: rgba(107, 114, 128, 0.1);
+      border: 1px solid rgba(107, 114, 128, 0.25);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: var(--text-subtle);
+      margin-top: 12px;
+      line-height: 1.5;
+    }
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
@@ -442,6 +476,9 @@
     <!-- Results -->
     <div id="results">
 
+      <!-- Quality Warning Banner (shown only when quality issues exist) -->
+      <div id="qualityBanner" style="display:none;"></div>
+
       <!-- Summary Banner -->
       <div class="summary-banner">
         <div class="summary-grid">
@@ -472,8 +509,7 @@
         </div>
       </div>
 
-      <!-- Image Comparison -->
-      <div class="grid-3 mb-32">
+      <!-- Image Comparison -->      <div class="grid-3 mb-32">
         <div class="card">
           <div class="card-title">Input Image</div>
           <img id="inputImg" src="" alt="Input thermal image">
@@ -635,7 +671,26 @@
     }
 
     function renderResults(data) {
-      // Summary banner
+      // ── Quality warning banner ──────────────────────────────────────────────
+      const qBanner = document.getElementById('qualityBanner');
+      const q = data.quality || {};
+      const qWarnings = q.warnings || [];
+      const qLevel = q.quality_level || 'good';
+
+      if (qWarnings.length > 0 && qLevel !== 'good') {
+        const icon = qLevel === 'poor' ? '⚠️' : '🔔';
+        const title = qLevel === 'poor'
+          ? 'Image quality issues detected — results may be unreliable'
+          : 'Image quality notice — results may have reduced accuracy';
+        const items = qWarnings.map(w => `<li>${w}</li>`).join('');
+        qBanner.className = `quality-banner ${qLevel}`;
+        qBanner.innerHTML = `<span class="q-icon">${icon}</span><div><strong>${title}</strong><ul>${items}</ul></div>`;
+        qBanner.style.display = 'flex';
+      } else {
+        qBanner.style.display = 'none';
+      }
+
+      // ── Summary banner ──────────────────────────────────────────────────────
       const faultBadge = document.getElementById('faultBadge');
       faultBadge.textContent = faultLabel(data.fault_type);
       faultBadge.className = faultBadgeClass(data.fault_type);
@@ -648,6 +703,19 @@
       document.getElementById('statConfidence').textContent = ((data.confidence || 0) * 100).toFixed(0) + '%';
       document.getElementById('statScore').textContent = (data.score || 0).toFixed(1);
       document.getElementById('modeBadge').textContent = data.inference_mode === 'model' ? 'Model-based' : 'Rule-based';
+
+      // Ambiguous result notice — shown inside summary banner when confidence is low
+      const existingNotice = document.getElementById('ambiguousNotice');
+      if (existingNotice) existingNotice.remove();
+      if (data.is_ambiguous) {
+        const notice = document.createElement('div');
+        notice.id = 'ambiguousNotice';
+        notice.className = 'ambiguous-notice';
+        notice.textContent = `Low confidence result (${((data.confidence || 0) * 100).toFixed(0)}%). ` +
+          'The detected thermal pattern falls in an ambiguous zone where normal and fault images share similar features. ' +
+          'This result should be verified by a human inspector. A trained ML model would provide more reliable classification.';
+        document.querySelector('.summary-banner').appendChild(notice);
+      }
 
       // Images
       if (data.images) {

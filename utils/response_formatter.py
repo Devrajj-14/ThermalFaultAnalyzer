@@ -19,6 +19,8 @@ def build_success_response(
     images: Dict,
     inference_mode: str,
     ranked_regions: list = None,
+    quality_report: Dict = None,
+    is_ambiguous: bool = False,
 ) -> Dict:
     """
     Build the standardised success response.
@@ -74,18 +76,25 @@ def build_success_response(
             "user_summary": genai.get("user_summary", ""),
             "maintenance_advice": genai.get("maintenance_advice", ""),
             "technical_summary": genai.get("technical_summary", ""),
-            "source": genai.get("source", "template")
+            "source": genai.get("source", "template"),
         },
         "images": {
             "input_image": images.get("input_image", ""),
             "fault_detection": images.get("fault_detection", ""),
-            "fault_parts": images.get("fault_parts", [])
+            "fault_parts": images.get("fault_parts", []),
         },
+        "quality": {
+            "quality_level": (quality_report or {}).get("quality_level", "good"),
+            "warnings": (quality_report or {}).get("warnings", []),
+            "confidence_penalty": (quality_report or {}).get("confidence_penalty", 0.0),
+            "metrics": (quality_report or {}).get("metrics", {}),
+        },
+        "is_ambiguous": is_ambiguous,
         # Legacy fields for backward compatibility
         "prediction": _fault_type_to_legacy(fault_type),
         "input_image": images.get("input_image", ""),
         "fault_detection": images.get("fault_detection", ""),
-        "fault_parts": images.get("fault_parts", [])
+        "fault_parts": images.get("fault_parts", []),
     }
 
 

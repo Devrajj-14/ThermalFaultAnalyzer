@@ -9,6 +9,7 @@ import numpy as np
 from typing import Dict
 
 from services.rule_based_service import rule_based_inference
+from utils.image_quality import assess_image_quality
 from config.settings import (
     BASE_EXPECTED_OUTPUT_KWH, INSTALLED_POWER_KWP,
     IRRADIANCE_KWH_M2_DAY, DAYS_PER_YEAR, DEGRADATION_YEARS,
@@ -29,25 +30,28 @@ def _is_model_available() -> bool:
 def run_inference(img_bgr: np.ndarray) -> Dict:
     """
     Main inference entry point.
-    
-    Tries model-based inference first; falls back to rule-based.
-    
-    Args:
-        img_bgr: OpenCV BGR image array
-    
-    Returns:
-        Standardised inference result dict
+
+    Runs image quality assessment first, then model-based or rule-based inference.
+    Quality warnings and confidence penalty are attached to the result.
+
+    Returns standardised inference result dict including quality_report.
     """
+    # Always assess quality — result is attached regardless of inference path
+    quality_report = assess_image_quality(img_bgr)
+
     if _is_model_available():
         try:
             result = _model_based_inference(img_bgr)
             result["inference_mode"] = "model"
+            result["quality_report"] = quality_report
+            result.setdefault("is_ambiguous", False)
             return result
         except Exception as exc:
             logger.warning("Model inference failed (%s). Falling back to rule-based.", exc)
 
-    result = rule_based_inference(img_bgr)
+    result = rule_based_inference(img_bgr, quality_penalty=quality_report["confidence_penalty"])
     result["inference_mode"] = "rule_based"
+    result["quality_report"] = quality_report
     return result
 
 

@@ -60,7 +60,7 @@ Paired with a **Recommended Timeline** card showing action deadline and risk out
 ### AI-Generated Analysis
 <img width="1280" height="439" alt="image" src="https://github.com/user-attachments/assets/693ca357-b084-4197-8d23-f662c694429b" />
 
-![AI Analysis](docs/screenshots/ai_analysis.png)
+
 
 Three sections powered by Gemini (falls back to deterministic templates if API unavailable):
 - **Summary** — plain-language overview for operators
